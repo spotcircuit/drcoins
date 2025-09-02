@@ -50,13 +50,12 @@ const CTA: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ classNam
 
 // GALLERY (upload preview)
 const uploadedImages: string[] = [
-  // Add your image URLs here
-  "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=500&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=500&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=500&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=500&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=500&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?w=500&h=400&fit=crop",
+  "/Dr coins 1.png",
+  "/Dr,11.png",
+  "/dr 12.png",
+  "/dr 13.png",
+  "/dr 14.png",
+  "/Dr 15.png",
 ];
 
 const GalleryMock: React.FC = () => (
@@ -77,7 +76,7 @@ const GalleryMock: React.FC = () => (
               <img
                 src={src}
                 alt={`upload-${i}`}
-                className="h-full w-full object-cover transition group-hover:scale-105"
+                className="h-full w-full object-contain p-4 transition group-hover:scale-105"
               />
             </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-3 text-sm font-medium text-white">
@@ -91,38 +90,127 @@ const GalleryMock: React.FC = () => (
 );
 
 // Shop Pages
-const ShopCoinsMock: React.FC = () => (
-  <Container className="py-10 lg:py-12">
-    <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Coins</h2>
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {[
-        {name: "Starter Pack", coins: 1000, price: 14.99},
-        {name: "Popular Choice", coins: 5460, price: 69.99},
-        {name: "Best Value", coins: 36400, price: 399.99},
-      ].map((pack) => (
-        <SectionCard key={pack.name} title={pack.name}>
-          <div className="text-2xl font-bold text-purple-600">{pack.coins.toLocaleString()} Coins</div>
-          <div className="mt-2 text-lg font-semibold">${pack.price}</div>
-          <CTA className="mt-4 w-full">Purchase</CTA>
-        </SectionCard>
-      ))}
-    </div>
-  </Container>
-);
+const ShopCoinsMock: React.FC = () => {
+  const [selectedCoins, setSelectedCoins] = React.useState(1740);
+  const pricePerCoin = 0.0115; // Approximately $20 for 1740 coins
+  const totalPrice = (selectedCoins * pricePerCoin).toFixed(2);
+  
+  return (
+    <Container className="py-10 lg:py-12">
+      <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Coins</h2>
+      
+      {/* Custom Coin Calculator */}
+      <SectionCard className="mb-8">
+        <div className="relative h-48 mb-6 overflow-hidden rounded-lg">
+          <img src="/dr 12.png" alt="LiveMe Coins" className="h-full w-full object-contain p-4" />
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Select Coin Amount: {selectedCoins.toLocaleString()} coins
+            </label>
+            <input 
+              type="range" 
+              min="20" 
+              max="2000" 
+              value={selectedCoins}
+              onChange={(e) => setSelectedCoins(Number(e.target.value))}
+              className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <div className="flex justify-between text-xs text-slate-600 mt-1">
+              <span>20</span>
+              <span>2000</span>
+            </div>
+          </div>
+          <div className="text-center py-4 bg-purple-50 rounded-lg">
+            <div className="text-3xl font-bold text-purple-600">${totalPrice}</div>
+            <div className="text-sm text-slate-600">for {selectedCoins.toLocaleString()} coins</div>
+          </div>
+          <CTA className="w-full">Purchase Coins</CTA>
+          <p className="text-xs text-center text-slate-600">
+            ⚠️ Failure to enter the correct ID will result in a 10% fee
+          </p>
+        </div>
+      </SectionCard>
+      
+      {/* Popular Packages */}
+      <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
+      <div className="grid gap-6 md:grid-cols-3">
+        {[
+          {name: "Quick Top-up", coins: 348, price: 4.00, image: "/Dr,11.png"},
+          {name: "Standard Pack", coins: 1740, price: 20.00, image: "/dr 12.png"},
+          {name: "Premium Bundle", coins: 2000, price: 23.00, image: "/Dr 15.png"},
+        ].map((pack) => (
+          <SectionCard key={pack.name} title={pack.name}>
+            <div className="relative h-32 mb-4 overflow-hidden rounded-lg">
+              <img src={pack.image} alt={pack.name} className="h-full w-full object-contain p-4" />
+            </div>
+            <div className="text-2xl font-bold text-purple-600">{pack.coins.toLocaleString()} Coins</div>
+            <div className="mt-2 text-lg font-semibold">${pack.price.toFixed(2)}</div>
+            <CTA className="mt-4 w-full">Quick Buy</CTA>
+          </SectionCard>
+        ))}
+      </div>
+    </Container>
+  );
+};
 
 const ShopPointsMock: React.FC = () => (
   <Container className="py-10 lg:py-12">
     <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Nobility Points</h2>
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    
+    {/* Points Features List */}
+    <div className="mb-8">
+      <h3 className="mb-4 text-lg font-semibold text-white">What can you do with Nobility Points?</h3>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[
+          {name: "Pin your Moment", points: 20, icon: "📌"},
+          {name: "Remove Muting", points: 30, icon: "🔊"},
+          {name: "Unban Broadcasting", points: 50, icon: "📡"},
+          {name: "Feature Pin (15 min)", points: 60, icon: "⭐"},
+          {name: "Diamond Hiding Card (30 days)", points: 80, icon: "💎"},
+          {name: "Unban Account", points: 100, icon: "🔓"},
+          {name: "Ghost Comment Card (7 days)", points: 200, icon: "👻"},
+          {name: "Send Official System Message", points: 300, icon: "📢"},
+          {name: "Remove Game Tab (30 days)", points: 300, icon: "🎮"},
+        ].map((feature) => (
+          <div key={feature.name} className="bg-purple-50/90 rounded-lg p-3 border border-purple-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{feature.icon}</span>
+                <div>
+                  <div className="text-sm font-medium text-slate-900">{feature.name}</div>
+                  <div className="text-xs text-purple-600 font-semibold">{feature.points} points</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+    
+    {/* Points Packages */}
+    <h3 className="mb-4 text-lg font-semibold text-white">Buy Points Packages</h3>
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       {[
-        {name: "Baron", days: 30, price: 49.99},
-        {name: "Duke", days: 30, price: 149.99},
-        {name: "King", days: 30, price: 599.99},
-      ].map((tier) => (
-        <SectionCard key={tier.name} title={tier.name}>
-          <div className="text-lg text-purple-600">{tier.days} Days</div>
-          <div className="mt-2 text-lg font-semibold">${tier.price}</div>
-          <CTA className="mt-4 w-full">Purchase</CTA>
+        {name: "Starter", points: 100, price: 9.99, popular: false},
+        {name: "Essential", points: 300, price: 24.99, popular: true},
+        {name: "Premium", points: 600, price: 44.99, popular: false},
+        {name: "Ultimate", points: 1200, price: 79.99, popular: false},
+      ].map((pack) => (
+        <SectionCard key={pack.name} className={pack.popular ? "ring-4 ring-purple-400" : ""}>
+          {pack.popular && (
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+              <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full">Most Popular</span>
+            </div>
+          )}
+          <div className="text-center">
+            <h4 className="text-lg font-semibold text-slate-900">{pack.name}</h4>
+            <div className="text-3xl font-bold text-purple-600 my-3">{pack.points}</div>
+            <div className="text-sm text-slate-600 mb-3">Nobility Points</div>
+            <div className="text-2xl font-bold mb-4">${pack.price}</div>
+            <CTA className="w-full">Buy Now</CTA>
+          </div>
         </SectionCard>
       ))}
     </div>
@@ -134,9 +222,9 @@ const ProductMock: React.FC = () => (
     <div className="grid gap-8 lg:grid-cols-2">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-teal-50/90 border-2 border-orange-400">
         <img 
-          src="/productpic.png" 
+          src="/dr 14.png" 
           alt="LiveMe Coins Bundle" 
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain p-4"
         />
       </div>
       <div>
@@ -198,11 +286,28 @@ const AdminMock: React.FC = () => (
 
 const AboutFAQMock: React.FC = () => (
   <Container className="py-10 lg:py-12">
-    <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">About/FAQ</h2>
+    <div className="flex flex-col lg:flex-row items-center gap-8 mb-8">
+      <div className="lg:w-1/3">
+        <img 
+          src="/drcoins2.png" 
+          alt="Dr. Coins Mascot" 
+          className="w-full max-w-xs mx-auto"
+        />
+      </div>
+      <div className="lg:w-2/3">
+        <h2 className="mb-4 text-3xl font-bold tracking-tight text-white">About Dr. Coins</h2>
+        <p className="text-lg text-purple-300">
+          Your trusted prescription for streaming growth! Dr. Coins is your official LiveMe reseller, 
+          providing instant coin and nobility point delivery 24/7. With transparent pricing, 
+          secure transactions, and real human support, we&apos;re here to power up your LiveMe experience.
+        </p>
+      </div>
+    </div>
+    <h3 className="mb-6 text-2xl font-bold tracking-tight text-white">Frequently Asked Questions</h3>
     <div className="space-y-4">
       {[
         {q: "How fast is delivery?", a: "Most orders complete within minutes after ID verification."},
-        {q: "Are you official?", a: "Yes, we're an approved LiveMe reseller."},
+        {q: "Are you official?", a: "Yes, we&apos;re an approved LiveMe reseller."},
         {q: "What payment methods?", a: "Card, Klarna, Zelle, Apple Cash, Venmo, and more."},
       ].map((faq) => (
         <SectionCard key={faq.q}>
@@ -221,7 +326,7 @@ type Page = typeof PAGES[number];
 const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setPage }) => (
   <header className="sticky top-0 z-20 border-b border-purple-800/50 bg-black/80 backdrop-blur">
     <Container className="flex h-16 items-center justify-between">
-      <div className="text-lg font-bold tracking-tight text-white">Oh Deer Coins</div>
+      <div className="text-lg font-bold tracking-tight text-white">Dr. Coins</div>
       <nav className="hidden items-center gap-1 md:flex">
         {PAGES.map((label) => (
           <button
@@ -250,15 +355,15 @@ const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setP
 const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
   <div className={`relative bg-gradient-to-b ${brand.bg}`}>
     {/* Hero Section with Logo */}
-    <Container className="py-12 sm:py-16 lg:py-20">
+    <Container className=" py-12 sm:py-16 lg:py-20">
       <div className="text-center">
         <img 
-          src="/logo.png" 
-          alt="Oh Deer Coins" 
-          className="mx-auto h-32 w-32 rounded-xl object-contain mb-6"
+          src="/drcoins.png" 
+          alt="Dr. Coins" 
+          className="mx-auto h-64 w-64 sm:h-72 sm:w-72 lg:h-80 lg:w-80 rounded-xl object-contain mb-6"
         />
         <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-          Oh Deer Coins
+          Dr. Coins
         </h1>
         <p className="mt-4 text-xl text-purple-300">
           Your Trusted Official LiveMe Reseller • 24/7 Instant Fulfillment
@@ -266,9 +371,17 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
       </div>
     </Container>
     
-    <Container className="py-10 sm:py-14 lg:py-16">
+    <Container className=" py-10 sm:py-14 lg:py-16">
       <div className={`${brand.card} ${brand.ring} relative overflow-hidden rounded-3xl px-6 py-10 shadow-xl sm:px-10` }>
         <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-purple-500/30 blur-3xl" />
+        {/* Background Image inside the card */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/dr 13.png" 
+            alt="Background" 
+            className="h-full w-full object-cover opacity-20 rounded-3xl"
+          />
+        </div>
         <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-purple-800/30 blur-3xl" />
         <div className="relative grid gap-10 md:grid-cols-2">
           <div>
@@ -294,9 +407,12 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
           </div>
           <div className="">
             <div className="relative isolate overflow-hidden rounded-2xl border-2 border-purple-400 bg-purple-50/90 p-6 shadow-md">
-              <div className="mb-4 text-sm font-semibold text-slate-900">Featured bundles</div>
+              <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full overflow-hidden opacity-30">
+                <img src="/dr 12.png" alt="Coins" className="h-full w-full object-cover" />
+              </div>
+              <div className="mb-4 text-sm font-semibold text-slate-900 relative z-10">Featured bundles</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {[{name:"5,460 Coins", price:69.99},{name:"36,400 Coins", price:399.99},{name:"Nobility: Duke", price:149.99},{name:"Nobility: King", price:599.99}].map((p)=> (
+                {[{name:"348 Coins", price:4.00},{name:"1,740 Coins", price:20.00},{name:"300 Points", price:24.99},{name:"600 Points", price:44.99}].map((p)=> (
                   <div key={p.name} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm">
                     <div className="text-sm font-medium text-slate-900">{p.name}</div>
                     <div className="mt-1 text-xs text-slate-700">Instant delivery after ID match</div>
@@ -342,7 +458,7 @@ export default function OhDeerCoinsMockups() {
       {page === "About/FAQ" && <AboutFAQMock />}
       <footer className="mt-16 border-t border-white/10">
         <Container className="flex flex-col items-center justify-between gap-4 py-8 text-center text-white/80 sm:flex-row sm:text-left">
-          <p className="text-xs">© {new Date().getFullYear()} Oh Deer Coins. All rights reserved.</p>
+          <p className="text-xs">© {new Date().getFullYear()} Dr. Coins. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
             <a className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30" href="#">Terms</a>
             <a className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30" href="#">Privacy</a>
