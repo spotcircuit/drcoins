@@ -1,6 +1,10 @@
 'use client'
 
 import React, { useState } from "react";
+import StripeCheckoutButton from "@/components/StripeCheckoutButton";
+import { useCart } from "@/contexts/CartContext";
+import CartIcon from "@/components/CartIcon";
+import CartDrawer from "@/components/CartDrawer";
 
 // Color tokens (purple theme with teal/cyan cards)
 const brand = {
@@ -91,6 +95,7 @@ const GalleryMock: React.FC = () => (
 
 // Shop Pages
 const ShopCoinsMock: React.FC = () => {
+  const { addToCart } = useCart();
   const [selectedCoins, setSelectedCoins] = React.useState(1740);
   const pricePerCoin = 0.0115; // Approximately $20 for 1740 coins
   const totalPrice = (selectedCoins * pricePerCoin).toFixed(2);
@@ -126,7 +131,31 @@ const ShopCoinsMock: React.FC = () => {
             <div className="text-3xl font-bold text-purple-600">${totalPrice}</div>
             <div className="text-sm text-slate-600">for {selectedCoins.toLocaleString()} coins</div>
           </div>
-          <CTA className="w-full">Purchase Coins</CTA>
+          <div className="flex gap-2">
+            <button
+              onClick={() => addToCart({
+                name: `LiveMe Coins - ${selectedCoins} coins`,
+                description: "Instant delivery to your LiveMe account",
+                price: parseFloat(totalPrice),
+                quantity: 1,
+                type: 'coins',
+                amount: selectedCoins
+              })}
+              className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Add to Cart
+            </button>
+            <StripeCheckoutButton 
+              items={[{
+                name: `LiveMe Coins - ${selectedCoins} coins`,
+                description: "Instant delivery to your LiveMe account",
+                price: parseFloat(totalPrice),
+                quantity: 1
+              }]}
+              buttonText="Buy Now"
+              className="flex-1"
+            />
+          </div>
           <p className="text-xs text-center text-slate-600">
             ⚠️ Failure to enter the correct ID will result in a 10% fee
           </p>
@@ -137,17 +166,38 @@ const ShopCoinsMock: React.FC = () => {
       <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          {name: "Quick Top-up", coins: 348, price: 4.00, image: "/Dr,11.png"},
-          {name: "Standard Pack", coins: 1740, price: 20.00, image: "/dr 12.png"},
-          {name: "Premium Bundle", coins: 2000, price: 23.00, image: "/Dr 15.png"},
+          {name: "Quick Top-up", coins: 348, price: 4.00},
+          {name: "Standard Pack", coins: 1740, price: 20.00},
+          {name: "Premium Bundle", coins: 2000, price: 23.00},
         ].map((pack) => (
           <SectionCard key={pack.name} title={pack.name}>
-            <div className="relative h-32 mb-4 overflow-hidden rounded-lg">
-              <img src={pack.image} alt={pack.name} className="h-full w-full object-contain p-4" />
-            </div>
             <div className="text-2xl font-bold text-purple-600">{pack.coins.toLocaleString()} Coins</div>
             <div className="mt-2 text-lg font-semibold">${pack.price.toFixed(2)}</div>
-            <CTA className="mt-4 w-full">Quick Buy</CTA>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => addToCart({
+                  name: `${pack.name} - ${pack.coins} coins`,
+                  description: "Instant delivery to your LiveMe account",
+                  price: pack.price,
+                  quantity: 1,
+                  type: 'coins',
+                  amount: pack.coins
+                })}
+                className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+              >
+                Add to Cart
+              </button>
+              <StripeCheckoutButton 
+                items={[{
+                  name: `${pack.name} - ${pack.coins} coins`,
+                  description: "Instant delivery to your LiveMe account",
+                  price: pack.price,
+                  quantity: 1
+                }]}
+                buttonText="Buy Now"
+                className="flex-1 text-sm"
+              />
+            </div>
           </SectionCard>
         ))}
       </div>
@@ -155,138 +205,193 @@ const ShopCoinsMock: React.FC = () => {
   );
 };
 
-const ShopPointsMock: React.FC = () => (
-  <Container className="py-10 lg:py-12">
-    <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Nobility Points</h2>
-    
-    {/* Points Features List */}
-    <div className="mb-8">
-      <h3 className="mb-4 text-lg font-semibold text-white">What can you do with Nobility Points?</h3>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[
-          {name: "Pin your Moment", points: 20, icon: "📌"},
-          {name: "Remove Muting", points: 30, icon: "🔊"},
-          {name: "Unban Broadcasting", points: 50, icon: "📡"},
-          {name: "Feature Pin (15 min)", points: 60, icon: "⭐"},
-          {name: "Diamond Hiding Card (30 days)", points: 80, icon: "💎"},
-          {name: "Unban Account", points: 100, icon: "🔓"},
-          {name: "Ghost Comment Card (7 days)", points: 200, icon: "👻"},
-          {name: "Send Official System Message", points: 300, icon: "📢"},
-          {name: "Remove Game Tab (30 days)", points: 300, icon: "🎮"},
-        ].map((feature) => (
-          <div key={feature.name} className="bg-purple-50/90 rounded-lg p-3 border border-purple-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">{feature.icon}</span>
-                <div>
-                  <div className="text-sm font-medium text-slate-900">{feature.name}</div>
-                  <div className="text-xs text-purple-600 font-semibold">{feature.points} points</div>
+const ShopPointsMock: React.FC = () => {
+  const { addToCart } = useCart();
+  
+  return (
+    <Container className="py-10 lg:py-12">
+      <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Nobility Points</h2>
+      
+      {/* Points Features List */}
+      <div className="mb-8">
+        <h3 className="mb-4 text-lg font-semibold text-white">What can you do with Nobility Points?</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[
+            {name: "Pin your Moment", points: 20, icon: "📌"},
+            {name: "Remove Muting", points: 30, icon: "🔊"},
+            {name: "Unban Broadcasting", points: 50, icon: "📡"},
+            {name: "Feature Pin (15 min)", points: 60, icon: "⭐"},
+            {name: "Diamond Hiding Card (30 days)", points: 80, icon: "💎"},
+            {name: "Unban Account", points: 100, icon: "🔓"},
+            {name: "Ghost Comment Card (7 days)", points: 200, icon: "👻"},
+            {name: "Send Official System Message", points: 300, icon: "📢"},
+            {name: "Remove Game Tab (30 days)", points: 300, icon: "🎮"},
+          ].map((feature) => (
+            <div key={feature.name} className="bg-purple-50/90 rounded-lg p-3 border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{feature.icon}</span>
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">{feature.name}</div>
+                    <div className="text-xs text-purple-600 font-semibold">{feature.points} points</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Points Packages */}
+      <h3 className="mb-4 text-lg font-semibold text-white">Buy Points Packages</h3>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          {name: "Starter", points: 100, price: 9.99, popular: false},
+          {name: "Essential", points: 300, price: 24.99, popular: true},
+          {name: "Premium", points: 600, price: 44.99, popular: false},
+          {name: "Ultimate", points: 1200, price: 79.99, popular: false},
+        ].map((pack) => (
+          <SectionCard key={pack.name} className={pack.popular ? "ring-4 ring-purple-400" : ""}>
+            {pack.popular && (
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full">Most Popular</span>
+              </div>
+            )}
+            <div className="text-center">
+              <h4 className="text-lg font-semibold text-slate-900">{pack.name}</h4>
+              <div className="text-3xl font-bold text-purple-600 my-3">{pack.points}</div>
+              <div className="text-sm text-slate-600 mb-3">Nobility Points</div>
+              <div className="text-2xl font-bold mb-4">${pack.price}</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => addToCart({
+                    name: `${pack.name} - ${pack.points} Nobility Points`,
+                    description: "Instant delivery to your LiveMe account",
+                    price: pack.price,
+                    quantity: 1,
+                    type: 'points',
+                    amount: pack.points
+                  })}
+                  className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                >
+                  Add to Cart
+                </button>
+                <StripeCheckoutButton 
+                  items={[{
+                    name: `${pack.name} - ${pack.points} Nobility Points`,
+                    description: "Instant delivery to your LiveMe account",
+                    price: pack.price,
+                    quantity: 1
+                  }]}
+                  buttonText="Buy Now"
+                  className="flex-1 text-sm"
+                />
+              </div>
+            </div>
+          </SectionCard>
         ))}
       </div>
-    </div>
-    
-    {/* Points Packages */}
-    <h3 className="mb-4 text-lg font-semibold text-white">Buy Points Packages</h3>
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-      {[
-        {name: "Starter", points: 100, price: 9.99, popular: false},
-        {name: "Essential", points: 300, price: 24.99, popular: true},
-        {name: "Premium", points: 600, price: 44.99, popular: false},
-        {name: "Ultimate", points: 1200, price: 79.99, popular: false},
-      ].map((pack) => (
-        <SectionCard key={pack.name} className={pack.popular ? "ring-4 ring-purple-400" : ""}>
-          {pack.popular && (
-            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full">Most Popular</span>
-            </div>
-          )}
-          <div className="text-center">
-            <h4 className="text-lg font-semibold text-slate-900">{pack.name}</h4>
-            <div className="text-3xl font-bold text-purple-600 my-3">{pack.points}</div>
-            <div className="text-sm text-slate-600 mb-3">Nobility Points</div>
-            <div className="text-2xl font-bold mb-4">${pack.price}</div>
-            <CTA className="w-full">Buy Now</CTA>
-          </div>
-        </SectionCard>
-      ))}
-    </div>
-  </Container>
-);
-
-const ProductMock: React.FC = () => (
-  <Container className="py-10 lg:py-12">
-    <div className="grid gap-8 lg:grid-cols-2">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-teal-50/90 border-2 border-orange-400">
-        <img 
-          src="/dr 14.png" 
-          alt="LiveMe Coins Bundle" 
-          className="h-full w-full object-contain p-4"
-        />
-      </div>
-      <div>
-        <Pill>Official Reseller</Pill>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">LiveMe Coins Bundle</h1>
-        <p className="mt-3 text-lg text-slate-300">Get instant delivery of LiveMe coins to your account. Secure, fast, and reliable.</p>
-        <div className="mt-6 text-3xl font-bold text-white">$69.99</div>
-        <CTA className="mt-6">Add to Cart</CTA>
-      </div>
-    </div>
-  </Container>
-);
-
-const PurchaseMock: React.FC = () => (
-  <Container className="py-10 lg:py-12">
-    <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Complete Purchase</h2>
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2">
-        <SectionCard title="Billing Information">
-          <div className="space-y-4">
-            <input type="text" placeholder="Full Name" className="w-full rounded-lg border-2 border-orange-400 px-3 py-2" />
-            <input type="email" placeholder="Email" className="w-full rounded-lg border-2 border-orange-400 px-3 py-2" />
-            <input type="text" placeholder="Card Number" className="w-full rounded-lg border-2 border-orange-400 px-3 py-2" />
-          </div>
-        </SectionCard>
-      </div>
-      <div>
-        <SectionCard title="Order Summary">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>$69.99</span>
-            </div>
-            <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span>$69.99</span>
-            </div>
-          </div>
-          <CTA className="mt-4 w-full">Complete Order</CTA>
-        </SectionCard>
-      </div>
-    </div>
-  </Container>
-);
+    </Container>
+  );
+};
 
 const AdminMock: React.FC = () => (
   <Container className="py-10 lg:py-12">
     <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Admin Dashboard</h2>
-    <div className="grid gap-6 md:grid-cols-3">
-      {["Orders", "Users", "Products"].map((section) => (
-        <SectionCard key={section} title={section}>
-          <div className="text-2xl font-bold text-purple-600">{Math.floor(Math.random() * 1000)}</div>
-          <div className="text-sm text-slate-800">Total {section.toLowerCase()}</div>
+    
+    {/* Stats Overview */}
+    <div className="grid gap-6 md:grid-cols-4 mb-8">
+      {[
+        {title: "Total Orders", value: "1,234", change: "+12%"},
+        {title: "Revenue", value: "$45,678", change: "+8%"},
+        {title: "Active Users", value: "892", change: "+5%"},
+        {title: "Conversion Rate", value: "3.4%", change: "+0.2%"},
+      ].map((stat) => (
+        <SectionCard key={stat.title}>
+          <div className="text-sm text-slate-600">{stat.title}</div>
+          <div className="text-2xl font-bold text-purple-600 mt-1">{stat.value}</div>
+          <div className="text-xs text-green-600 mt-2">{stat.change} from last month</div>
         </SectionCard>
       ))}
+    </div>
+
+    {/* Recent Stripe Orders */}
+    <SectionCard title="Recent Stripe Orders" className="mb-8">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-purple-200">
+              <th className="text-left py-2">Order ID</th>
+              <th className="text-left py-2">Customer</th>
+              <th className="text-left py-2">Product</th>
+              <th className="text-left py-2">Amount</th>
+              <th className="text-left py-2">Status</th>
+              <th className="text-left py-2">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              {id: "ch_3Q2x4...", customer: "user@example.com", product: "1740 Coins", amount: "$20.00", status: "completed", date: "2024-03-15"},
+              {id: "ch_3Q2x3...", customer: "john@example.com", product: "300 Points", amount: "$24.99", status: "completed", date: "2024-03-15"},
+              {id: "ch_3Q2x2...", customer: "jane@example.com", product: "348 Coins", amount: "$4.00", status: "pending", date: "2024-03-14"},
+              {id: "ch_3Q2x1...", customer: "mike@example.com", product: "600 Points", amount: "$44.99", status: "completed", date: "2024-03-14"},
+              {id: "ch_3Q2x0...", customer: "sara@example.com", product: "2000 Coins", amount: "$23.00", status: "completed", date: "2024-03-13"},
+            ].map((order) => (
+              <tr key={order.id} className="border-b border-purple-100">
+                <td className="py-2 font-mono text-xs">{order.id}</td>
+                <td className="py-2">{order.customer}</td>
+                <td className="py-2">{order.product}</td>
+                <td className="py-2 font-semibold">{order.amount}</td>
+                <td className="py-2">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {order.status}
+                  </span>
+                </td>
+                <td className="py-2 text-slate-600">{order.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-4 text-center">
+        <button className="text-purple-600 hover:text-purple-700 text-sm font-semibold">
+          View All Orders →
+        </button>
+      </div>
+    </SectionCard>
+
+    {/* Quick Actions */}
+    <div className="grid gap-4 md:grid-cols-3">
+      <SectionCard>
+        <h4 className="font-semibold mb-3">Export Data</h4>
+        <button className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+          Download CSV
+        </button>
+      </SectionCard>
+      <SectionCard>
+        <h4 className="font-semibold mb-3">Webhook Status</h4>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-sm text-green-600">Connected</span>
+        </div>
+      </SectionCard>
+      <SectionCard>
+        <h4 className="font-semibold mb-3">Stripe Dashboard</h4>
+        <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" 
+           className="block w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center">
+          Open Stripe →
+        </a>
+      </SectionCard>
     </div>
   </Container>
 );
 
 const AboutFAQMock: React.FC = () => (
   <Container className="py-10 lg:py-12">
-    <div className="flex flex-col lg:flex-row items-center gap-8 mb-8">
+    {/* About Us Section */}
+    <div className="flex flex-col lg:flex-row items-center gap-8 mb-12">
       <div className="lg:w-1/3">
         <img 
           src="/drcoins2.png" 
@@ -295,20 +400,107 @@ const AboutFAQMock: React.FC = () => (
         />
       </div>
       <div className="lg:w-2/3">
-        <h2 className="mb-4 text-3xl font-bold tracking-tight text-white">About Dr. Coins</h2>
+        <h2 className="mb-4 text-3xl font-bold tracking-tight text-white">About Us</h2>
         <p className="text-lg text-purple-300">
-          Your trusted prescription for streaming growth! Dr. Coins is your official LiveMe reseller, 
-          providing instant coin and nobility point delivery 24/7. With transparent pricing, 
-          secure transactions, and real human support, we&apos;re here to power up your LiveMe experience.
+          At <strong>Dr. Coins</strong>, transparency, speed, and customer happiness are at the heart of everything we do. 
+          Our diverse team—made up of passionate individuals from all walks of life—knows the LiveMe community inside and out. 
+          That&apos;s why we can offer unbeatable deals and exclusive promos you won&apos;t find anywhere else.
+        </p>
+        <p className="mt-4 text-lg text-purple-300">
+          Whether you want to boost engagement with more diamonds, buy coins to cheer on your favorite creators, 
+          or unlock special nobility privileges, Dr. Coins has you covered. Join our ever-growing community of savvy 
+          LiveMe users and experience the difference of shopping with a team that truly puts you first!
         </p>
       </div>
     </div>
+
+    {/* What is a LiveMe Reseller Section */}
+    <div className="mb-12">
+      <h3 className="mb-6 text-2xl font-bold tracking-tight text-white">What is a LiveMe Reseller?</h3>
+      <SectionCard>
+        <p className="mb-4 text-slate-800">
+          A <strong>LiveMe reseller</strong> is generally a third-party individual or business that sells products, 
+          services, or virtual goods related to the LiveMe platform—usually at a markup for profit or as part of a bundle. 
+          <strong> LiveMe</strong> is a popular live-streaming social platform where users can broadcast themselves, 
+          interact with viewers, and receive virtual gifts (which can sometimes be exchanged for real money).
+        </p>
+        
+        <h4 className="mt-6 mb-3 font-semibold text-slate-900">What Do LiveMe Resellers Typically Offer?</h4>
+        <ul className="space-y-2 text-sm text-slate-800">
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Virtual Gifts & Coins</strong>: Resellers might sell LiveMe coins (the in-app currency) at a discount, bulk price, or with added value such as bonuses.</div>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Account Services</strong>: Some resellers offer upgraded or higher-ranked LiveMe accounts, often with more followers or in-app perks.</div>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Promotion Services</strong>: Certain resellers help promote a broadcaster&apos;s content, drive followers, or boost engagement.</div>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Gift Card Codes</strong>: Resellers sometimes distribute prepaid codes that users redeem for in-app purchases.</div>
+          </li>
+        </ul>
+
+        <h4 className="mt-6 mb-3 font-semibold text-slate-900">How Do They Work?</h4>
+        <ul className="space-y-2 text-sm text-slate-800">
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>Users buy coins or services from the reseller (not directly through the LiveMe app).</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>Payment is usually made through third-party platforms (like PayPal, Venmo, or crypto).</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>The reseller delivers the virtual goods or services, often instantly, but sometimes after a short wait.</span>
+          </li>
+        </ul>
+
+        <h4 className="mt-6 mb-3 font-semibold text-slate-900">Is It Safe?</h4>
+        <ul className="space-y-2 text-sm text-slate-800">
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Risks</strong>: Buying from unauthorized resellers can violate LiveMe&apos;s terms of service, possibly resulting in account suspension or bans.</div>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <div><strong>Official vs. Unofficial</strong>: Only buy from official, authorized sources to avoid scams or losing access to your account.</div>
+          </li>
+        </ul>
+
+        <h4 className="mt-6 mb-3 font-semibold text-slate-900">Why Do People Use Them?</h4>
+        <ul className="space-y-2 text-sm text-slate-800">
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>Lower prices than buying directly from the app.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>Special bundles or exclusive offers.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-purple-600 mt-1">•</span>
+            <span>Convenience.</span>
+          </li>
+        </ul>
+      </SectionCard>
+    </div>
+
+    {/* Frequently Asked Questions Section */}
     <h3 className="mb-6 text-2xl font-bold tracking-tight text-white">Frequently Asked Questions</h3>
     <div className="space-y-4">
       {[
         {q: "How fast is delivery?", a: "Most orders complete within minutes after ID verification."},
-        {q: "Are you official?", a: "Yes, we&apos;re an approved LiveMe reseller."},
-        {q: "What payment methods?", a: "Card, Klarna, Zelle, Apple Cash, Venmo, and more."},
+        {q: "Are you official?", a: "Yes, we&apos;re an approved LiveMe reseller with authorization to provide coins and nobility points."},
+        {q: "What payment methods do you accept?", a: "We accept all major credit/debit cards through Stripe, as well as Klarna, Zelle, Apple Cash, Venmo, and more through our support team."},
+        {q: "Is my payment information secure?", a: "Absolutely! We use Stripe for payment processing, which is PCI-compliant and uses industry-standard encryption to protect your data."},
+        {q: "What if I enter the wrong LiveMe ID?", a: "Please double-check your ID before purchase. Incorrect IDs may result in a 10% processing fee for order corrections."},
+        {q: "Can I get a refund?", a: "Due to the digital nature of our products, all sales are final once delivered. However, we&apos;ll work with you if there&apos;s an issue with your order."},
       ].map((faq) => (
         <SectionCard key={faq.q}>
           <h3 className="font-semibold">{faq.q}</h3>
@@ -320,36 +512,105 @@ const AboutFAQMock: React.FC = () => (
 );
 
 // NAV + PAGE SHELL
-const PAGES = ["Home", "Shop Coins", "Shop Points", "Product", "Purchase", "Admin", "Gallery", "About/FAQ"] as const;
-type Page = typeof PAGES[number];
+const PAGES = ["Home", "Shop Coins", "Shop Points", "Gallery", "About/FAQ"] as const;
+type Page = typeof PAGES[number] | "Admin";
 
-const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setPage }) => (
-  <header className="sticky top-0 z-20 border-b border-purple-800/50 bg-black/80 backdrop-blur">
-    <Container className="flex h-16 items-center justify-between">
-      <div className="text-lg font-bold tracking-tight text-white">Dr. Coins</div>
-      <nav className="hidden items-center gap-1 md:flex">
-        {PAGES.map((label) => (
-          <button
-            key={label}
-            onClick={() => setPage(label)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${page===label?"bg-purple-700/40 text-white":"text-purple-300 hover:bg-purple-700/30"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-      <div className="md:hidden">
-        <select
-          className="rounded-lg border border-purple-600 bg-black px-2 py-2 text-sm text-white"
-          value={page}
-          onChange={(e)=>setPage(e.target.value as Page)}
-        >
-          {PAGES.map(p => <option key={p}>{p}</option>)}
-        </select>
-      </div>
-    </Container>
-  </header>
-);
+const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setPage }) => {
+  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+
+  const handleAdminClick = () => {
+    setShowAdminPrompt(true);
+  };
+
+  const checkAdminPassword = () => {
+    if (adminPassword === "drcoins2024") {
+      setPage("Admin");
+      setShowAdminPrompt(false);
+      setAdminPassword("");
+    } else {
+      alert("Incorrect password");
+    }
+  };
+
+  return (
+    <>
+      <header className="sticky top-0 z-20 border-b border-purple-800/50 bg-black/80 backdrop-blur">
+        <Container className="flex h-16 items-center justify-between">
+          <div className="text-lg font-bold tracking-tight text-white">Dr. Coins</div>
+          <nav className="hidden items-center gap-1 md:flex">
+            {PAGES.map((label) => (
+              <button
+                key={label}
+                onClick={() => setPage(label)}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${page===label?"bg-purple-700/40 text-white":"text-purple-300 hover:bg-purple-700/30"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-2">
+            <CartIcon />
+            <button
+              onClick={handleAdminClick}
+              className="p-2 text-white hover:text-purple-300 transition-colors"
+              title="Admin"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <div className="md:hidden">
+              <select
+                className="rounded-lg border border-purple-600 bg-black px-2 py-2 text-sm text-white"
+                value={page === "Admin" ? "Home" : page}
+                onChange={(e)=>setPage(e.target.value as Page)}
+              >
+                {PAGES.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+        </Container>
+      </header>
+
+      {/* Admin Password Modal */}
+      {showAdminPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Enter Admin Password</h3>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && checkAdminPassword()}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
+              placeholder="Password"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={checkAdminPassword}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Submit
+              </button>
+              <button
+                onClick={() => {
+                  setShowAdminPrompt(false);
+                  setAdminPassword("");
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 // HOME
 const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
@@ -448,11 +709,10 @@ export default function OhDeerCoinsMockups() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-purple-950">
       <Shell page={page} setPage={setPage} />
+      <CartDrawer />
       {page === "Home" && <HomeMock setPage={setPage} />}
       {page === "Shop Coins" && <ShopCoinsMock />}
       {page === "Shop Points" && <ShopPointsMock />}
-      {page === "Product" && <ProductMock />}
-      {page === "Purchase" && <PurchaseMock />}
       {page === "Admin" && <AdminMock />}
       {page === "Gallery" && <GalleryMock />}
       {page === "About/FAQ" && <AboutFAQMock />}
