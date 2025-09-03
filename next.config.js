@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Remove 'output: export' to enable API routes
   reactStrictMode: true,
   images: {
     domains: ['your-cdn.com', 'images.unsplash.com'], // Add your image domains here
