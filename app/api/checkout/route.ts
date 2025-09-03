@@ -1,9 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 
+export async function GET() {
+  return NextResponse.json({
+    status: 'Checkout API is running',
+    stripeConfigured: !!stripe,
+    hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+    hasPublishableKey: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+  });
+}
+
 export async function POST(req: NextRequest) {
+  console.log('Checkout API called');
+  
+  // Check if Stripe is initialized
+  if (!stripe) {
+    console.error('Stripe not initialized - check STRIPE_SECRET_KEY');
+    return NextResponse.json(
+      { error: 'Payment system not configured' },
+      { status: 500 }
+    );
+  }
+  
   try {
-    const { items } = await req.json();
+    let items;
+    try {
+      const body = await req.json();
+      items = body.items;
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(

@@ -3,7 +3,16 @@ import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
+  let body;
+  try {
+    body = await req.text();
+  } catch (e) {
+    return NextResponse.json(
+      { error: 'Failed to read request body' },
+      { status: 400 }
+    );
+  }
+  
   const signature = req.headers.get('stripe-signature');
 
   if (!signature) {
