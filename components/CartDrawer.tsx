@@ -1,10 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import StripeCheckoutButton from './StripeCheckoutButton';
 
 export default function CartDrawer() {
   const { items, removeFromCart, updateQuantity, getTotalPrice, isOpen, setIsOpen, clearCart } = useCart();
+  const [liveMeId, setLiveMeId] = useState('');
+  const [error, setError] = useState('');
+
+  const handleCheckout = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!liveMeId.trim()) {
+      setError('Please enter your LiveMe ID');
+      return;
+    }
+    // Proceed with checkout - this will be handled by the StripeCheckoutButton
+  };
 
   if (!isOpen) return null;
 
@@ -91,17 +103,42 @@ export default function CartDrawer() {
                 <span>${getTotalPrice().toFixed(2)}</span>
               </div>
               
-              <StripeCheckoutButton
-                items={items.map(item => ({
-                  name: item.name,
-                  description: item.description,
-                  price: item.price,
-                  quantity: item.quantity,
-                  images: item.image
-                }))}
-                buttonText="Checkout"
-                className="w-full"
-              />
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="liveMeId" className="block text-sm font-medium text-gray-700 mb-1">
+                    LiveMe ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="liveMeId"
+                    value={liveMeId}
+                    onChange={(e) => {
+                      setLiveMeId(e.target.value);
+                      if (error) setError('');
+                    }}
+                    placeholder="Enter your LiveMe ID"
+                    className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                  {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+                </div>
+                
+                <StripeCheckoutButton
+                  items={items.map(item => ({
+                    name: item.name,
+                    description: item.description,
+                    price: item.price,
+                    quantity: item.quantity,
+                    images: item.image,
+                    metadata: {
+                      liveMeId: liveMeId.trim()
+                    }
+                  }))}
+                  buttonText="Proceed to Checkout"
+                  className="w-full"
+                  isCartCheckout={true}
+                  liveMeId={liveMeId}
+                />
+              </div>
               
               <button
                 onClick={clearCart}

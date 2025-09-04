@@ -45,6 +45,16 @@ export async function POST(req: NextRequest) {
         console.log('Payment successful:', session.id);
         console.log('Customer email:', session.customer_email);
         console.log('Amount:', session.amount_total);
+        console.log('LiveMe ID:', session.metadata?.liveMeId);
+        console.log('Items purchased:', session.metadata?.items);
+        
+        // TODO: Send email receipt to customer
+        // This would typically integrate with an email service like SendGrid, Resend, etc.
+        // For now, we're just logging the information
+        
+        // TODO: Send order notification to admin
+        // Include LiveMe ID, customer email, and items purchased
+        
         break;
 
       case 'payment_intent.succeeded':

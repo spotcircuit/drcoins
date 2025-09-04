@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
+import LiveMeIdModal from './LiveMeIdModal';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -17,17 +18,29 @@ interface StripeCheckoutButtonProps {
   items: CheckoutItem[];
   buttonText?: string;
   className?: string;
+  liveMeId?: string;
+  isCartCheckout?: boolean;
 }
 
 export default function StripeCheckoutButton({ 
   items, 
   buttonText = 'Checkout',
-  className = ''
+  className = '',
+  liveMeId: initialLiveMeId = '',
+  isCartCheckout = false
 }: StripeCheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [showLiveMeModal, setShowLiveMeModal] = useState(false);
+  const [liveMeId, setLiveMeId] = useState(initialLiveMeId);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (idToUse = liveMeId) => {
+    // Only show modal for non-cart checkouts when no LiveMe ID is provided
+    if (!idToUse && !isCartCheckout) {
+      setShowLiveMeModal(true);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
 
@@ -40,7 +53,10 @@ export default function StripeCheckoutButton({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ items: cleanItems }),
+        body: JSON.stringify({ 
+          items: cleanItems,
+          liveMeId: liveMeId || null // Always send LiveMeId if available
+        }),
       });
 
       const data = await response.json();
@@ -72,12 +88,23 @@ export default function StripeCheckoutButton({
   return (
     <div>
       <button
-        onClick={handleCheckout}
+        onClick={() => handleCheckout()}
         disabled={loading}
         className={`px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${className}`}
       >
         {loading ? 'Processing...' : buttonText}
       </button>
+      
+      <LiveMeIdModal
+        isOpen={showLiveMeModal}
+        onCloseAction={() => setShowLiveMeModal(false)}
+        onConfirmAction={async (id) => {
+          setLiveMeId(id);
+          await handleCheckout(id);
+        }}
+        initialValue={liveMeId}
+      />
+      
       {error && (
         <p className="mt-2 text-red-500 text-sm">{error}</p>
       )}

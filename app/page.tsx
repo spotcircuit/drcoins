@@ -5,6 +5,9 @@ import StripeCheckoutButton from "@/components/StripeCheckoutButton";
 import { useCart } from "@/contexts/CartContext";
 import CartIcon from "@/components/CartIcon";
 import CartDrawer from "@/components/CartDrawer";
+import TermsOfService from "@/components/TermsOfService";
+import PrivacyPolicy from "@/components/PrivacyPolicy";
+import RefundPolicy from "@/components/RefundPolicy";
 
 // Color tokens (purple theme with teal/cyan cards)
 const brand = {
@@ -50,47 +53,6 @@ const CTA: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ classNam
   >
     {children}
   </button>
-);
-
-// GALLERY (upload preview)
-const uploadedImages: string[] = [
-  "/Dr coins 1.png",
-  "/Dr,11.png",
-  "/dr 12.png",
-  "/dr 13.png",
-  "/dr 14.png",
-  "/Dr 15.png",
-];
-
-const GalleryMock: React.FC = () => (
-  <Container className="py-10 lg:py-12">
-    <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Gallery</h2>
-    {uploadedImages.length === 0 ? (
-      <p className="text-sm text-slate-300">
-        No images yet — add URLs to <code>uploadedImages</code>.
-      </p>
-    ) : (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {uploadedImages.map((src, i) => (
-          <div
-            key={src}
-            className="group relative overflow-hidden rounded-2xl border-2 border-orange-400 bg-teal-50/90 shadow-sm"
-          >
-            <div className="aspect-[4/3] w-full overflow-hidden">
-              <img
-                src={src}
-                alt={`upload-${i}`}
-                className="h-full w-full object-contain p-4 transition group-hover:scale-105"
-              />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-3 text-sm font-medium text-white">
-              Image {i + 1}
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </Container>
 );
 
 // Shop Pages
@@ -166,13 +128,23 @@ const ShopCoinsMock: React.FC = () => {
       <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          {name: "Quick Top-up", coins: 348, price: 4.00},
-          {name: "Standard Pack", coins: 1740, price: 20.00},
-          {name: "Premium Bundle", coins: 2000, price: 23.00},
+          {name: "Quick Top-up", coins: 20, price: 4.00, image: "/drcoins.png"},
+          {name: "Standard Pack", coins: 50, price: 20.00, image: "/Dr,11.png"},
+          {name: "Premium Bundle", coins: 100, price: 23.00, image: "/Dr 15.png"},
         ].map((pack) => (
-          <SectionCard key={pack.name} title={pack.name}>
-            <div className="text-2xl font-bold text-purple-600">{pack.coins.toLocaleString()} Coins</div>
-            <div className="mt-2 text-lg font-semibold">${pack.price.toFixed(2)}</div>
+          <SectionCard key={pack.name} className="flex flex-col h-full">
+            <div className="flex-1">
+              <div className="flex justify-center mb-4">
+                <img 
+                  src={pack.image} 
+                  alt={`${pack.coins} Coins`} 
+                  className={`h-32 w-auto object-contain ${pack.name === 'Premium Bundle' ? 'scale-75' : ''}`}
+                />
+              </div>
+              <h3 className="text-xl font-bold text-center mb-2">{pack.name}</h3>
+              <div className="text-2xl font-bold text-purple-600 text-center">{pack.coins.toLocaleString()} Coins</div>
+              <div className="mt-2 text-lg font-semibold text-center">${pack.price.toFixed(2)}</div>
+            </div>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => addToCart({
@@ -181,7 +153,8 @@ const ShopCoinsMock: React.FC = () => {
                   price: pack.price,
                   quantity: 1,
                   type: 'coins',
-                  amount: pack.coins
+                  amount: pack.coins,
+                  image: pack.image
                 })}
                 className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
               >
@@ -192,7 +165,8 @@ const ShopCoinsMock: React.FC = () => {
                   name: `${pack.name} - ${pack.coins} coins`,
                   description: "Instant delivery to your LiveMe account",
                   price: pack.price,
-                  quantity: 1
+                  quantity: 1,
+                  images: pack.image
                 }]}
                 buttonText="Buy Now"
                 className="flex-1 text-sm"
@@ -212,84 +186,62 @@ const ShopPointsMock: React.FC = () => {
     <Container className="py-10 lg:py-12">
       <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Nobility Points</h2>
       
-      {/* Points Features List */}
+      {/* Points Features List with Pricing */}
       <div className="mb-8">
         <h3 className="mb-4 text-lg font-semibold text-white">What can you do with Nobility Points?</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[
-            {name: "Pin your Moment", points: 20, icon: "📌"},
-            {name: "Remove Muting", points: 30, icon: "🔊"},
-            {name: "Unban Broadcasting", points: 50, icon: "📡"},
-            {name: "Feature Pin (15 min)", points: 60, icon: "⭐"},
-            {name: "Diamond Hiding Card (30 days)", points: 80, icon: "💎"},
-            {name: "Unban Account", points: 100, icon: "🔓"},
-            {name: "Ghost Comment Card (7 days)", points: 200, icon: "👻"},
-            {name: "Send Official System Message", points: 300, icon: "📢"},
-            {name: "Remove Game Tab (30 days)", points: 300, icon: "🎮"},
+            {name: "Pin your Moment", points: 20, price: 20.00, icon: "📌"},
+            {name: "Remove Muting", points: 30, price: 30.00, icon: "🔊"},
+            {name: "Unban Broadcasting", points: 50, price: 50.00, icon: "📡"},
+            {name: "Feature Pin (15 min)", points: 60, price: 60.00, icon: "⭐"},
+            {name: "Diamond Hiding Card (30 days)", points: 80, price: 80.00, icon: "💎"},
+            {name: "Unban Account", points: 100, price: 100.00, icon: "🔓"},
+            {name: "Ghost Comment Card (7 days)", points: 200, price: 200.00, icon: "👻"},
+            {name: "Send Official System Message", points: 300, price: 300.00, icon: "📢"},
+            {name: "Remove Game Tab (30 days)", points: 300, price: 300.00, icon: "🎮"},
           ].map((feature) => (
-            <div key={feature.name} className="bg-purple-50/90 rounded-lg p-3 border border-purple-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{feature.icon}</span>
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">{feature.name}</div>
-                    <div className="text-xs text-purple-600 font-semibold">{feature.points} points</div>
+            <div key={feature.name} className="bg-purple-50/90 rounded-lg p-4 border-2 border-purple-300">
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">{feature.icon}</span>
+                  <div className="text-sm font-medium text-slate-900">{feature.name}</div>
+                </div>
+                <div className="mt-auto">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-lg font-bold text-purple-700">{feature.points} Points</span>
+                    <span className="text-sm text-slate-500">•</span>
+                    <span className="text-xl font-bold text-purple-800">${feature.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => addToCart({
+                        name: feature.name,
+                        description: `Nobility Points Service: ${feature.name}`,
+                        price: feature.price,
+                        quantity: 1,
+                        type: 'points'
+                      })}
+                      className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                    >
+                      Add to Cart
+                    </button>
+                    <StripeCheckoutButton 
+                      items={[{
+                        name: feature.name,
+                        description: `Nobility Points Service: ${feature.name}`,
+                        price: feature.price,
+                        quantity: 1
+                      }]}
+                      buttonText="Buy Now"
+                      className="flex-1 text-sm"
+                    />
                   </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-      
-      {/* Points Packages */}
-      <h3 className="mb-4 text-lg font-semibold text-white">Buy Points Packages</h3>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[
-          {name: "Starter", points: 100, price: 9.99, popular: false},
-          {name: "Essential", points: 300, price: 24.99, popular: true},
-          {name: "Premium", points: 600, price: 44.99, popular: false},
-          {name: "Ultimate", points: 1200, price: 79.99, popular: false},
-        ].map((pack) => (
-          <SectionCard key={pack.name} className={pack.popular ? "ring-4 ring-purple-400" : ""}>
-            {pack.popular && (
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full">Most Popular</span>
-              </div>
-            )}
-            <div className="text-center">
-              <h4 className="text-lg font-semibold text-slate-900">{pack.name}</h4>
-              <div className="text-3xl font-bold text-purple-600 my-3">{pack.points}</div>
-              <div className="text-sm text-slate-600 mb-3">Nobility Points</div>
-              <div className="text-2xl font-bold mb-4">${pack.price}</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => addToCart({
-                    name: `${pack.name} - ${pack.points} Nobility Points`,
-                    description: "Instant delivery to your LiveMe account",
-                    price: pack.price,
-                    quantity: 1,
-                    type: 'points',
-                    amount: pack.points
-                  })}
-                  className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                >
-                  Add to Cart
-                </button>
-                <StripeCheckoutButton 
-                  items={[{
-                    name: `${pack.name} - ${pack.points} Nobility Points`,
-                    description: "Instant delivery to your LiveMe account",
-                    price: pack.price,
-                    quantity: 1
-                  }]}
-                  buttonText="Buy Now"
-                  className="flex-1 text-sm"
-                />
-              </div>
-            </div>
-          </SectionCard>
-        ))}
       </div>
     </Container>
   );
@@ -332,59 +284,24 @@ const AdminMock: React.FC = () => (
           <tbody>
             {[
               {id: "ch_3Q2x4...", customer: "user@example.com", product: "1740 Coins", amount: "$20.00", status: "completed", date: "2024-03-15"},
-              {id: "ch_3Q2x3...", customer: "john@example.com", product: "300 Points", amount: "$24.99", status: "completed", date: "2024-03-15"},
-              {id: "ch_3Q2x2...", customer: "jane@example.com", product: "348 Coins", amount: "$4.00", status: "pending", date: "2024-03-14"},
-              {id: "ch_3Q2x1...", customer: "mike@example.com", product: "600 Points", amount: "$44.99", status: "completed", date: "2024-03-14"},
-              {id: "ch_3Q2x0...", customer: "sara@example.com", product: "2000 Coins", amount: "$23.00", status: "completed", date: "2024-03-13"},
             ].map((order) => (
-              <tr key={order.id} className="border-b border-purple-100">
-                <td className="py-2 font-mono text-xs">{order.id}</td>
-                <td className="py-2">{order.customer}</td>
-                <td className="py-2">{order.product}</td>
-                <td className="py-2 font-semibold">{order.amount}</td>
-                <td className="py-2">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                  }`}>
+              <tr key={order.id} className="border-b border-purple-100 hover:bg-purple-50">
+                <td className="py-3 text-purple-700">{order.id}</td>
+                <td className="py-3">{order.customer}</td>
+                <td className="py-3">{order.product}</td>
+                <td className="py-3">{order.amount}</td>
+                <td className="py-3">
+                  <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
                     {order.status}
                   </span>
                 </td>
-                <td className="py-2 text-slate-600">{order.date}</td>
+                <td className="py-3 text-sm text-gray-500">{order.date}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="mt-4 text-center">
-        <button className="text-purple-600 hover:text-purple-700 text-sm font-semibold">
-          View All Orders →
-        </button>
-      </div>
     </SectionCard>
-
-    {/* Quick Actions */}
-    <div className="grid gap-4 md:grid-cols-3">
-      <SectionCard>
-        <h4 className="font-semibold mb-3">Export Data</h4>
-        <button className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-          Download CSV
-        </button>
-      </SectionCard>
-      <SectionCard>
-        <h4 className="font-semibold mb-3">Webhook Status</h4>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-green-600">Connected</span>
-        </div>
-      </SectionCard>
-      <SectionCard>
-        <h4 className="font-semibold mb-3">Stripe Dashboard</h4>
-        <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" 
-           className="block w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center">
-          Open Stripe →
-        </a>
-      </SectionCard>
-    </div>
   </Container>
 );
 
@@ -507,13 +424,13 @@ const AboutFAQMock: React.FC = () => (
           <p className="mt-2 text-sm text-slate-800">{faq.a}</p>
         </SectionCard>
       ))}
-    </div>
+      </div>
   </Container>
 );
 
 // NAV + PAGE SHELL
-const PAGES = ["Home", "Shop Coins", "Shop Points", "Gallery", "About/FAQ"] as const;
-type Page = typeof PAGES[number] | "Admin";
+const PAGES = ["Home", "Shop Coins", "Shop Points", "About/FAQ"] as const;
+type Page = typeof PAGES[number] | "Admin" | "Terms" | "Privacy" | "Refunds";
 
 const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setPage }) => {
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
@@ -673,7 +590,7 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
               </div>
               <div className="mb-4 text-sm font-semibold text-slate-900 relative z-10">Featured bundles</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {[{name:"348 Coins", price:4.00},{name:"1,740 Coins", price:20.00},{name:"300 Points", price:24.99},{name:"600 Points", price:44.99}].map((p)=> (
+                {[{name:"1,740 Coins", price:20.00},{name:"4,350 Coins", price:50.00},{name:"8,799 Coins", price:100.00},{name:"26,100 Coins", price:300.00}].map((p)=> (
                   <div key={p.name} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm">
                     <div className="text-sm font-medium text-slate-900">{p.name}</div>
                     <div className="mt-1 text-xs text-slate-700">Instant delivery after ID match</div>
@@ -714,15 +631,32 @@ export default function OhDeerCoinsMockups() {
       {page === "Shop Coins" && <ShopCoinsMock />}
       {page === "Shop Points" && <ShopPointsMock />}
       {page === "Admin" && <AdminMock />}
-      {page === "Gallery" && <GalleryMock />}
       {page === "About/FAQ" && <AboutFAQMock />}
+      {page === "Terms" && <TermsOfService onClose={() => setPage("Home")} />}
+      {page === "Privacy" && <PrivacyPolicy onClose={() => setPage("Home")} />}
+      {page === "Refunds" && <RefundPolicy onClose={() => setPage("Home")} />}
       <footer className="mt-16 border-t border-white/10">
         <Container className="flex flex-col items-center justify-between gap-4 py-8 text-center text-white/80 sm:flex-row sm:text-left">
           <p className="text-xs">© {new Date().getFullYear()} Dr. Coins. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-            <a className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30" href="#">Terms</a>
-            <a className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30" href="#">Privacy</a>
-            <a className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30" href="#">Refunds</a>
+            <button 
+              onClick={() => setPage("Terms")}
+              className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30"
+            >
+              Terms
+            </button>
+            <button 
+              onClick={() => setPage("Privacy")}
+              className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30"
+            >
+              Privacy
+            </button>
+            <button 
+              onClick={() => setPage("Refunds")}
+              className="rounded-md border border-purple-700 bg-black/50 px-2 py-1 text-purple-200 hover:bg-purple-700/30"
+            >
+              Refunds
+            </button>
           </div>
         </Container>
       </footer>

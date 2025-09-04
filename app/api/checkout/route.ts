@@ -23,10 +23,11 @@ export async function POST(req: NextRequest) {
   }
   
   try {
-    let items;
+    let items, liveMeId;
     try {
       const body = await req.json();
       items = body.items;
+      liveMeId = body.liveMeId;
     } catch (e) {
       console.error('Failed to parse request body:', e);
       return NextResponse.json(
@@ -48,8 +49,8 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: item.name,
-            description: item.description,
+            name: liveMeId ? `${item.name} - LiveMe ID: ${liveMeId}` : item.name,
+            description: liveMeId ? `Delivery to LiveMe ID: ${liveMeId}` : item.description,
             // Stripe requires absolute URLs for images, removing for now
           },
           unit_amount: Math.round(item.price * 100),
@@ -61,7 +62,11 @@ export async function POST(req: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/`,
       metadata: {
         orderId: Date.now().toString(),
+        liveMeId: liveMeId || '',
+        items: JSON.stringify(items.map(i => ({ name: i.name, price: i.price, quantity: i.quantity || 1 }))),
       },
+      customer_email: undefined, // Will be collected by Stripe checkout
+      billing_address_collection: 'auto',
     });
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
