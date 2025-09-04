@@ -57,11 +57,17 @@ const CTA: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ classNam
 );
 
 // Shop Pages
-const ShopCoinsMock: React.FC = () => {
+const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoins }) => {
   const { addToCart } = useCart();
-  const [selectedCoins, setSelectedCoins] = React.useState(1740);
-  const pricePerCoin = 0.0115; // Approximately $20 for 1740 coins
-  const totalPrice = (selectedCoins * pricePerCoin).toFixed(2);
+  const [selectedCoins, setSelectedCoins] = React.useState(initialCoins || 1740);
+  const coinsPerDollar = 87;
+  const totalPrice = (selectedCoins / coinsPerDollar).toFixed(2);
+  
+  React.useEffect(() => {
+    if (initialCoins) {
+      setSelectedCoins(initialCoins);
+    }
+  }, [initialCoins]);
   
   return (
     <Container className="py-10 lg:py-12">
@@ -79,15 +85,16 @@ const ShopCoinsMock: React.FC = () => {
             </label>
             <input 
               type="range" 
-              min="20" 
-              max="2000" 
+              min="87" 
+              max="26100" 
+              step="87"
               value={selectedCoins}
               onChange={(e) => setSelectedCoins(Number(e.target.value))}
               className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
             />
             <div className="flex justify-between text-xs text-slate-600 mt-1">
-              <span>20</span>
-              <span>2000</span>
+              <span>87 coins ($1)</span>
+              <span>26,100 coins ($300)</span>
             </div>
           </div>
           <div className="text-center py-4 bg-purple-50 rounded-lg">
@@ -129,9 +136,9 @@ const ShopCoinsMock: React.FC = () => {
       <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          {name: "Quick Top-up", coins: 348, price: 20.00, image: "/drcoins.png"},
-          {name: "Standard Pack", coins: 1740, price: 50.00, image: "/Dr,11.png"},
-          {name: "Premium Bundle", coins: 2000, price: 100.00, image: "/Dr 15.png"},
+          {name: "Quick Top-up", coins: 1740, price: 20.00, image: "/drcoins.png"},
+          {name: "Standard Pack", coins: 4350, price: 50.00, image: "/Dr,11.png"},
+          {name: "Premium Bundle", coins: 8700, price: 100.00, image: "/Dr 15.png"},
         ].map((pack) => (
           <SectionCard key={pack.name} className="flex flex-col h-full">
             <div className="flex-1">
@@ -148,29 +155,28 @@ const ShopCoinsMock: React.FC = () => {
             </div>
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => addToCart({
-                  name: `${pack.name} - ${pack.coins} coins`,
-                  description: "Instant delivery to your LiveMe account",
-                  price: pack.price,
-                  quantity: 1,
-                  type: 'coins',
-                  amount: pack.coins,
-                  image: pack.image
-                })}
+                onClick={() => {
+                  setSelectedCoins(pack.coins);
+                  addToCart({
+                    name: `${pack.name} - ${pack.coins} coins`,
+                    description: "Instant delivery to your LiveMe account",
+                    price: pack.price,
+                    quantity: 1,
+                    type: 'coins',
+                    amount: pack.coins,
+                    image: pack.image
+                  });
+                }}
                 className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
               >
                 Add to Cart
               </button>
-              <BuyNowButton 
-                item={{
-                  name: `${pack.name} - ${pack.coins} coins`,
-                  description: "Instant delivery to your LiveMe account",
-                  price: pack.price,
-                  quantity: 1
-                }}
-                buttonText="Buy Now"
-                className="flex-1 text-sm"
-              />
+              <button
+                onClick={() => setSelectedCoins(pack.coins)}
+                className="flex-1 px-3 py-2 border-2 border-purple-600 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors text-sm"
+              >
+                Select Amount
+              </button>
             </div>
           </SectionCard>
         ))}
@@ -530,7 +536,7 @@ const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setP
 };
 
 // HOME
-const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
+const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: number) => void }>= ({ setPage, setInitialCoins }) => (
   <div className={`relative bg-gradient-to-b ${brand.bg}`}>
     {/* Hero Section with Logo */}
     <Container className=" py-12 sm:py-16 lg:py-20">
@@ -589,14 +595,28 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
                 <img src="/dr 12.png" alt="Coins" className="h-full w-full object-cover" />
               </div>
               <div className="mb-4 text-sm font-semibold text-slate-900 relative z-10">Featured bundles</div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[{name:"1,740 Coins", price:20.00},{name:"4,350 Coins", price:50.00},{name:"8,799 Coins", price:100.00},{name:"26,100 Coins", price:300.00}].map((p)=> (
-                  <div key={p.name} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm">
+              <div className="grid gap-3 sm:grid-cols-2 relative z-10">
+                {[{name:"1,740 Coins", price:20.00, coins:1740},{name:"4,350 Coins", price:50.00, coins:4350},{name:"8,700 Coins", price:100.00, coins:8700},{name:"26,100 Coins", price:300.00, coins:26100}].map((p)=> (
+                  <div key={p.name} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm relative">
                     <div className="text-sm font-medium text-slate-900">{p.name}</div>
                     <div className="mt-1 text-xs text-slate-700">Instant delivery after ID match</div>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="text-lg font-semibold text-slate-900">${p.price.toFixed(2)}</div>
-                      <button onClick={()=>setPage(p.name.includes("Coins")?"Shop Coins":"Shop Points")} className="rounded-lg border-2 border-purple-400 bg-purple-50/90 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100">View</button>
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if(p.name.includes("Coins")) {
+                            setInitialCoins(p.coins);
+                            setPage("Shop Coins");
+                          } else {
+                            setPage("Shop Points");
+                          }
+                        }} 
+                        className="relative z-20 rounded-lg border-2 border-purple-400 bg-purple-50/90 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer"
+                      >
+                        View
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -622,13 +642,14 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void }>= ({ setPage }) => (
 // MAIN APP
 export default function OhDeerCoinsMockups() {
   const [page, setPage] = useState<Page>("Home");
+  const [initialCoins, setInitialCoins] = useState<number | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-purple-950">
       <Shell page={page} setPage={setPage} />
       <CartDrawer />
-      {page === "Home" && <HomeMock setPage={setPage} />}
-      {page === "Shop Coins" && <ShopCoinsMock />}
+      {page === "Home" && <HomeMock setPage={setPage} setInitialCoins={setInitialCoins} />}
+      {page === "Shop Coins" && <ShopCoinsMock initialCoins={initialCoins} />}
       {page === "Shop Points" && <ShopPointsMock />}
       {page === "Admin" && <AdminMock />}
       {page === "About/FAQ" && <AboutFAQMock />}
