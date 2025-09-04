@@ -1,63 +1,54 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import LiveMeIdModal from './LiveMeIdModal';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-interface CheckoutItem {
-  name: string;
-  description?: string;
-  price: number;
-  quantity?: number;
-  images?: string;
-}
-
-interface StripeCheckoutButtonProps {
-  items: CheckoutItem[];
-  buttonText?: string;
+interface BuyNowButtonProps {
+  item: {
+    name: string;
+    description?: string;
+    price: number;
+    quantity?: number;
+  };
   className?: string;
-  liveMeId?: string;
-  isCartCheckout?: boolean;
+  buttonText?: string;
 }
 
-export default function StripeCheckoutButton({ 
-  items, 
-  buttonText = 'Checkout',
+export default function BuyNowButton({ 
+  item, 
   className = '',
-  liveMeId: initialLiveMeId = '',
-  isCartCheckout = false
-}: StripeCheckoutButtonProps) {
+  buttonText = 'Buy Now'
+}: BuyNowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [showLiveMeModal, setShowLiveMeModal] = useState(false);
-  const [liveMeId, setLiveMeId] = useState(initialLiveMeId);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCheckout = async (idToUse?: string) => {
-    const effectiveId = idToUse || liveMeId;
-    
-    // Only show modal for non-cart checkouts when no LiveMe ID is provided
-    if (!effectiveId && !isCartCheckout) {
-      setShowLiveMeModal(true);
-      return;
-    }
-    
+  const handleBuyNow = () => {
+    // Always show the modal first to get LiveMe ID
+    setShowLiveMeModal(true);
+  };
+
+  const proceedWithCheckout = async (liveMeId: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Remove images field from items as Stripe requires absolute URLs
-      const cleanItems = items.map(({ images, ...item }) => item);
-      
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          items: cleanItems,
-          liveMeId: effectiveId || null // Always send LiveMeId if available
+          items: [{
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            quantity: item.quantity || 1
+          }],
+          liveMeId: liveMeId
         }),
       });
 
@@ -88,9 +79,9 @@ export default function StripeCheckoutButton({
   };
 
   return (
-    <div>
+    <>
       <button
-        onClick={() => handleCheckout()}
+        onClick={handleBuyNow}
         disabled={loading}
         className={`px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${className}`}
       >
@@ -99,17 +90,20 @@ export default function StripeCheckoutButton({
       
       <LiveMeIdModal
         isOpen={showLiveMeModal}
-        onCloseAction={() => setShowLiveMeModal(false)}
-        onConfirmAction={async (id) => {
-          setLiveMeId(id);
-          await handleCheckout(id);
+        onCloseAction={() => {
+          setShowLiveMeModal(false);
+          setError(null);
         }}
-        initialValue={liveMeId}
+        onConfirmAction={async (id) => {
+          setShowLiveMeModal(false);
+          await proceedWithCheckout(id);
+        }}
+        initialValue=""
       />
       
       {error && (
         <p className="mt-2 text-red-500 text-sm">{error}</p>
       )}
-    </div>
+    </>
   );
 }

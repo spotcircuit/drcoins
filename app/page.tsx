@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import StripeCheckoutButton from "@/components/StripeCheckoutButton";
+import BuyNowButton from "@/components/BuyNowButton";
 import { useCart } from "@/contexts/CartContext";
 import CartIcon from "@/components/CartIcon";
 import CartDrawer from "@/components/CartDrawer";
@@ -107,13 +108,13 @@ const ShopCoinsMock: React.FC = () => {
             >
               Add to Cart
             </button>
-            <StripeCheckoutButton 
-              items={[{
+            <BuyNowButton 
+              item={{
                 name: `LiveMe Coins - ${selectedCoins} coins`,
                 description: "Instant delivery to your LiveMe account",
                 price: parseFloat(totalPrice),
                 quantity: 1
-              }]}
+              }}
               buttonText="Buy Now"
               className="flex-1"
             />
@@ -128,9 +129,9 @@ const ShopCoinsMock: React.FC = () => {
       <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          {name: "Quick Top-up", coins: 20, price: 4.00, image: "/drcoins.png"},
-          {name: "Standard Pack", coins: 50, price: 20.00, image: "/Dr,11.png"},
-          {name: "Premium Bundle", coins: 100, price: 23.00, image: "/Dr 15.png"},
+          {name: "Quick Top-up", coins: 348, price: 20.00, image: "/drcoins.png"},
+          {name: "Standard Pack", coins: 1740, price: 50.00, image: "/Dr,11.png"},
+          {name: "Premium Bundle", coins: 2000, price: 100.00, image: "/Dr 15.png"},
         ].map((pack) => (
           <SectionCard key={pack.name} className="flex flex-col h-full">
             <div className="flex-1">
@@ -160,14 +161,13 @@ const ShopCoinsMock: React.FC = () => {
               >
                 Add to Cart
               </button>
-              <StripeCheckoutButton 
-                items={[{
+              <BuyNowButton 
+                item={{
                   name: `${pack.name} - ${pack.coins} coins`,
                   description: "Instant delivery to your LiveMe account",
                   price: pack.price,
-                  quantity: 1,
-                  images: pack.image
-                }]}
+                  quantity: 1
+                }}
                 buttonText="Buy Now"
                 className="flex-1 text-sm"
               />
@@ -226,13 +226,13 @@ const ShopPointsMock: React.FC = () => {
                     >
                       Add to Cart
                     </button>
-                    <StripeCheckoutButton 
-                      items={[{
+                    <BuyNowButton 
+                      item={{
                         name: feature.name,
                         description: `Nobility Points Service: ${feature.name}`,
                         price: feature.price,
                         quantity: 1
-                      }]}
+                      }}
                       buttonText="Buy Now"
                       className="flex-1 text-sm"
                     />

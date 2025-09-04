@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 type LiveMeIdModalProps = {
   isOpen: boolean;
@@ -13,6 +14,12 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
   const [liveMeId, setLiveMeId] = useState(initialValue);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,10 +49,10 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
     onCloseAction();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
@@ -117,4 +124,7 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
       </div>
     </div>
   );
+
+  // Use portal to render at document body level
+  return createPortal(modalContent, document.body);
 }

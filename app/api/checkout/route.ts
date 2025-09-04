@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: liveMeId ? `${item.name} - LiveMe ID: ${liveMeId}` : item.name,
-            description: liveMeId ? `Delivery to LiveMe ID: ${liveMeId}` : item.description,
+            name: item.name,
+            description: liveMeId 
+              ? `Instant delivery to LiveMe ID: ${liveMeId}` 
+              : (item.description || 'Instant delivery to your LiveMe account'),
             // Stripe requires absolute URLs for images, removing for now
           },
           unit_amount: Math.round(item.price * 100),
