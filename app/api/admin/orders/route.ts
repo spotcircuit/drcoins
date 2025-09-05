@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Simple admin auth check
 function isAdminAuthenticated(req: NextRequest): boolean {
@@ -205,44 +208,41 @@ export async function POST(req: NextRequest) {
     }
 
     if (sendEmail && session.customer_email) {
-      // Send fulfillment email
+      // Send fulfillment email directly using Resend
       try {
         const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
         
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: session.customer_email,
-            subject: 'Your Dr. Coins Order Has Been Delivered! 🎉',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #7c3aed;">Order Fulfilled!</h2>
-                <p>Great news! Your Dr. Coins have been delivered to your LiveMe account.</p>
-                
-                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <h3 style="color: #1f2937; margin-top: 0;">Order Details:</h3>
-                  <p><strong>LiveMe ID:</strong> ${session.metadata?.liveMeId || 'Not provided'}</p>
-                  <p><strong>Amount:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
-                  <h4 style="color: #1f2937;">Items Delivered:</h4>
-                  <ul>
-                    ${items.map((item: any) => `<li>${item.quantity}x ${item.name}</li>`).join('')}
-                  </ul>
-                </div>
-                
-                <p>Your coins should now be available in your LiveMe account. If you have any issues, please contact support.</p>
-                
-                <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                  Thank you for your purchase!<br>
-                  - The Dr. Coins Team
-                </p>
+        const emailData = await resend.emails.send({
+          from: 'Dr. Coins <noreply@dr-coins.com>',
+          to: session.customer_email,
+          subject: 'Your Dr. Coins Order Has Been Delivered! 🎉',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #7c3aed;">Order Fulfilled!</h2>
+              <p>Great news! Your Dr. Coins have been delivered to your LiveMe account.</p>
+              
+              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #1f2937; margin-top: 0;">Order Details:</h3>
+                <p><strong>LiveMe ID:</strong> ${session.metadata?.liveMeId || 'Not provided'}</p>
+                <p><strong>Amount:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
+                <h4 style="color: #1f2937;">Items Delivered:</h4>
+                <ul>
+                  ${items.map((item: any) => `<li>${item.quantity}x ${item.name}</li>`).join('')}
+                </ul>
               </div>
-            `,
-            text: `Your Dr. Coins order has been delivered to LiveMe ID: ${session.metadata?.liveMeId}. Amount: $${((session.amount_total || 0) / 100).toFixed(2)}`
-          })
+              
+              <p>Your coins should now be available in your LiveMe account. If you have any issues, please contact support.</p>
+              
+              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                Thank you for your purchase!<br>
+                - The Dr. Coins Team
+              </p>
+            </div>
+          `,
+          text: `Your Dr. Coins order has been delivered to LiveMe ID: ${session.metadata?.liveMeId}. Amount: $${((session.amount_total || 0) / 100).toFixed(2)}`
         });
         
-        console.log('Fulfillment email sent to:', session.customer_email);
+        console.log('Fulfillment email sent to:', session.customer_email, 'Email ID:', emailData.data?.id);
       } catch (emailError) {
         console.error('Failed to send fulfillment email:', emailError);
         // Don't fail the whole operation if email fails
