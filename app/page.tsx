@@ -75,8 +75,15 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
       
       {/* Custom Coin Calculator */}
       <SectionCard className="mb-8">
-        <div className="relative h-48 mb-6 overflow-hidden rounded-lg">
-          <img src="/dr 12.png" alt="LiveMe Coins" className="h-full w-full object-contain p-4" />
+        <div className="relative h-40 mb-6 overflow-hidden rounded-lg">
+          <div className="absolute inset-0 flex items-center">
+            <img 
+              src="/slidercoins.png" 
+              alt="LiveMe Coins Slider" 
+              className="w-full h-auto object-cover"
+              style={{ transform: 'translateY(10%)' }}
+            />
+          </div>
         </div>
         <div className="space-y-4">
           <div>
@@ -85,16 +92,16 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
             </label>
             <input 
               type="range" 
-              min="87" 
-              max="26100" 
-              step="87"
+              min="1740" 
+              max="174000" 
+              step="1740"
               value={selectedCoins}
               onChange={(e) => setSelectedCoins(Number(e.target.value))}
               className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
             />
             <div className="flex justify-between text-xs text-slate-600 mt-1">
-              <span>87 coins ($1)</span>
-              <span>26,100 coins ($300)</span>
+              <span>1,740 coins ($20)</span>
+              <span>174,000 coins ($2,000)</span>
             </div>
           </div>
           <div className="text-center py-4 bg-purple-50 rounded-lg">

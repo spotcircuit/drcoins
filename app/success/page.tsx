@@ -54,9 +54,19 @@ function SuccessContent() {
 
   useEffect(() => {
     if (videoRef.current && videoSrc) {
-      // Set volume and play
-      videoRef.current.volume = 0.5;
-      videoRef.current.play().catch(e => console.log('Video autoplay failed:', e));
+      // Mute first for autoplay to work
+      videoRef.current.muted = true;
+      videoRef.current.play().then(() => {
+        // Try to unmute after playing starts
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            videoRef.current.volume = 0.5;
+          }
+        }, 100);
+      }).catch(e => {
+        console.log('Video autoplay failed:', e);
+      });
     }
   }, [videoSrc]);
 
@@ -72,6 +82,7 @@ function SuccessContent() {
             loop
             playsInline
             autoPlay
+            muted
             controls={false}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 to-transparent" />

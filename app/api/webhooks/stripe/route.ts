@@ -48,12 +48,51 @@ export async function POST(req: NextRequest) {
         console.log('LiveMe ID:', session.metadata?.liveMeId);
         console.log('Items purchased:', session.metadata?.items);
         
-        // TODO: Send email receipt to customer
-        // This would typically integrate with an email service like SendGrid, Resend, etc.
-        // For now, we're just logging the information
+        // Send order confirmation email to customer
+        if (session.customer_email) {
+          const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
+          
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: session.customer_email,
+              subject: 'Order Confirmation - OhDeerCoins',
+              html: `
+                <h2>Thank you for your order!</h2>
+                <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been received.</p>
+                ${session.metadata?.liveMeId ? `<p><strong>LiveMe ID:</strong> ${session.metadata.liveMeId}</p>` : ''}
+                <h3>Items:</h3>
+                <ul>
+                  ${items.map((item: any) => `<li>${item.quantity}x ${item.name} - $${item.price.toFixed(2)}</li>`).join('')}
+                </ul>
+                <p>Your coins will be delivered to your LiveMe account shortly.</p>
+              `,
+              text: `Order Confirmation - Thank you for your order of $${((session.amount_total || 0) / 100).toFixed(2)}`
+            })
+          });
+        }
         
-        // TODO: Send order notification to admin
-        // Include LiveMe ID, customer email, and items purchased
+        // Notify admin of new order
+        if (process.env.ADMIN_EMAIL) {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: process.env.ADMIN_EMAIL,
+              subject: `New Order - ${session.metadata?.liveMeId || 'No LiveMe ID'}`,
+              html: `
+                <h2>New Order Received</h2>
+                <p><strong>Customer:</strong> ${session.customer_email}</p>
+                <p><strong>LiveMe ID:</strong> ${session.metadata?.liveMeId || 'Not provided'}</p>
+                <p><strong>Amount:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
+                <p><strong>Items:</strong> ${session.metadata?.items}</p>
+                <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/admin">View in Admin Panel</a></p>
+              `,
+              text: `New order from ${session.customer_email} for $${((session.amount_total || 0) / 100).toFixed(2)}`
+            })
+          });
+        }
         
         break;
 
