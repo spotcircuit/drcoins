@@ -168,7 +168,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { sessionId, status, sendEmail } = await req.json();
+    const body = await req.json();
+    const { sessionId, status } = body;
+    // Explicitly default sendEmail to true if not provided
+    const sendEmail = body.sendEmail !== false; // This way it defaults to true
+    
+    console.log('POST body received:', body);
+    console.log('sendEmail value:', sendEmail, 'type:', typeof sendEmail);
 
     if (!sessionId) {
       return NextResponse.json(
@@ -208,9 +214,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    console.log('About to check email conditions:');
+    console.log('- sendEmail:', sendEmail);
+    console.log('- session.customer_email:', session.customer_email);
+    console.log('- condition result:', !!(sendEmail && session.customer_email));
+    
     if (sendEmail && session.customer_email) {
       // Send fulfillment email directly using Resend
-      console.log('Attempting to send email to:', session.customer_email);
+      console.log('INSIDE EMAIL BLOCK - Attempting to send email to:', session.customer_email);
       console.log('Resend API key exists:', !!process.env.RESEND_API_KEY);
       
       try {
