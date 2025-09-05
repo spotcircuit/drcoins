@@ -640,7 +640,7 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: nu
 );
 
 // MAIN APP
-export default function OhDeerCoinsMockups() {
+export default function DrCoinsMockups() {
   const [page, setPage] = useState<Page>("Home");
   const [initialCoins, setInitialCoins] = useState<number | null>(null);
 

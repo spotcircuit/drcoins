@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               to: session.customer_email,
-              subject: 'Order Confirmation - OhDeerCoins',
+              subject: 'Order Confirmation - DrCoins',
               html: `
                 <h2>Thank you for your order!</h2>
                 <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been received.</p>

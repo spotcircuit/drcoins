@@ -23,8 +23,8 @@ A modern Next.js e-commerce platform for purchasing LiveMe Coins and Nobility Po
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/spotcircuit/ohdeercoins.git
-cd ohdeercoins
+git clone https://github.com/spotcircuit/drcoins.git
+cd drcoins
 ```
 
 2. Install dependencies:
