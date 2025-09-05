@@ -106,8 +106,15 @@ export async function POST(req: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/`,
       metadata: {
         orderId: Date.now().toString(),
-        liveMeId: liveMeId || '',
-        items: JSON.stringify(items.map(i => ({ name: i.name, price: i.price, quantity: i.quantity || 1 }))),
+        liveMeId: liveMeId || 'Not provided',
+        items: JSON.stringify(items.map(i => ({
+          name: i.name, 
+          price: i.price, 
+          quantity: i.quantity || 1,
+          description: liveMeId 
+            ? `Instant delivery to LiveMe ID: ${liveMeId}`
+            : 'Instant delivery to your LiveMe account'
+        }))),
       },
       customer: customer?.id, // Link to customer if we have one
       customer_email: email || undefined, // Pre-fill email if provided

@@ -55,9 +55,15 @@ export default function CartDrawer() {
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-semibold">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-gray-600">{item.description}</p>
+                        {liveMeId && (
+                          <p className="text-sm text-purple-600 font-medium">LiveMe ID: {liveMeId}</p>
                         )}
+                        <p className="text-sm text-gray-600">
+                          {liveMeId 
+                            ? `Instant delivery to LiveMe ID: ${liveMeId}`
+                            : (item.description || 'Instant delivery to your LiveMe account')
+                          }
+                        </p>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.id)}
@@ -136,7 +142,7 @@ export default function CartDrawer() {
                   buttonText="Proceed to Checkout"
                   className="w-full"
                   isCartCheckout={true}
-                  liveMeId={liveMeId}
+                  liveMeId={liveMeId.trim()}
                 />
               </div>
               

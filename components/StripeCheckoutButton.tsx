@@ -34,8 +34,14 @@ export default function StripeCheckoutButton({
   const [liveMeId, setLiveMeId] = useState(initialLiveMeId);
   const [error, setError] = useState<string | null>(null);
 
+  // Update liveMeId when prop changes
+  useEffect(() => {
+    setLiveMeId(initialLiveMeId);
+  }, [initialLiveMeId]);
+
   const handleCheckout = async (idToUse?: string) => {
     const effectiveId = idToUse || liveMeId;
+    
     
     // Only show modal for non-cart checkouts when no LiveMe ID is provided
     if (!effectiveId && !isCartCheckout) {
