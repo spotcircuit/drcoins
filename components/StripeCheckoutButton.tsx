@@ -42,11 +42,17 @@ export default function StripeCheckoutButton({
   const handleCheckout = async (idToUse?: string) => {
     const effectiveId = idToUse || liveMeId;
     
-    
-    // Only show modal for non-cart checkouts when no LiveMe ID is provided
-    if (!effectiveId && !isCartCheckout) {
-      setShowLiveMeModal(true);
-      return;
+    // Check for LiveMe ID for all checkouts
+    if (!effectiveId || !effectiveId.trim()) {
+      if (isCartCheckout) {
+        // For cart checkout, show error message
+        setError('Please enter your LiveMe ID before checkout');
+        return;
+      } else {
+        // For direct checkout, show modal
+        setShowLiveMeModal(true);
+        return;
+      }
     }
     
     setLoading(true);
