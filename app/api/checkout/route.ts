@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
+import { checkoutConfig, getBillingAddressConfig } from '@/lib/checkout-config';
 
 export async function GET() {
   return NextResponse.json({
@@ -85,8 +86,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'cashapp', 'link'],
+    // Build session configuration
+    const sessionConfig: any = {
+      payment_method_types: checkoutConfig.paymentMethods,
       line_items: items.map(item => ({
         price_data: {
           currency: 'usd',
@@ -95,7 +97,6 @@ export async function POST(req: NextRequest) {
             description: liveMeId 
               ? `Instant delivery to LiveMe ID: ${liveMeId}` 
               : (item.description || 'Instant delivery to your LiveMe account'),
-            // Stripe requires absolute URLs for images, removing for now
           },
           unit_amount: Math.round(item.price * 100),
         },
@@ -116,17 +117,21 @@ export async function POST(req: NextRequest) {
             : 'Instant delivery to your LiveMe account'
         }))),
       },
-      customer: customer?.id, // Link to customer if we have one
-      customer_email: email || undefined, // Pre-fill email if provided
-      customer_creation: 'always', // Always create/update customer in Stripe
-      billing_address_collection: 'required', // Collect billing address (includes name)
-      shipping_address_collection: {
-        allowed_countries: ['US'], // Collect shipping (includes name, phone)
-      },
+      customer: customer?.id,
+      customer_email: email || undefined,
+      customer_creation: 'always',
+      billing_address_collection: getBillingAddressConfig(),
       phone_number_collection: {
-        enabled: true, // Always collect phone
+        enabled: checkoutConfig.collectPhoneNumber,
       },
-    });
+    };
+
+    // Add payment method configuration if specified
+    if (checkoutConfig.paymentMethodConfigurationId) {
+      sessionConfig.payment_method_configuration = checkoutConfig.paymentMethodConfigurationId;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error: any) {

@@ -57,18 +57,20 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               to: session.customer_email,
-              subject: 'Order Confirmation - DrCoins',
+              subject: 'Payment Successful - DrCoins',
               html: `
-                <h2>Thank you for your order!</h2>
-                <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been received.</p>
+                <h2>Thank you for your purchase!</h2>
+                <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been successfully processed.</p>
                 ${session.metadata?.liveMeId ? `<p><strong>LiveMe ID:</strong> ${session.metadata.liveMeId}</p>` : ''}
-                <h3>Items:</h3>
+                <h3>Items Purchased:</h3>
                 <ul>
                   ${items.map((item: any) => `<li>${item.quantity}x ${item.name} - $${item.price.toFixed(2)}</li>`).join('')}
                 </ul>
-                <p>Your coins will be delivered to your LiveMe account shortly.</p>
+                <p><strong>What's next?</strong></p>
+                <p>Your order is being processed and your coins will be delivered to your LiveMe account shortly. You will receive another email notification once your order has been successfully fulfilled.</p>
+                <p>If you have any questions, please don't hesitate to contact our support team.</p>
               `,
-              text: `Order Confirmation - Thank you for your order of $${((session.amount_total || 0) / 100).toFixed(2)}`
+              text: `Payment Successful - Thank you for your purchase of $${((session.amount_total || 0) / 100).toFixed(2)}. Your order is being processed and you will receive another email once it has been fulfilled.`
             })
           });
         }
