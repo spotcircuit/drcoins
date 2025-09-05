@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || '');
+console.log('Resend initialized with key starting:', process.env.RESEND_API_KEY?.substring(0, 10));
 
 // Simple admin auth check
 function isAdminAuthenticated(req: NextRequest): boolean {
@@ -209,6 +210,9 @@ export async function POST(req: NextRequest) {
 
     if (sendEmail && session.customer_email) {
       // Send fulfillment email directly using Resend
+      console.log('Attempting to send email to:', session.customer_email);
+      console.log('Resend API key exists:', !!process.env.RESEND_API_KEY);
+      
       try {
         const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
         
@@ -243,9 +247,12 @@ export async function POST(req: NextRequest) {
         });
         
         console.log('Fulfillment email sent to:', session.customer_email, 'Email ID:', emailData.data?.id);
-      } catch (emailError) {
-        console.error('Failed to send fulfillment email:', emailError);
-        // Don't fail the whole operation if email fails
+        console.log('Full email response:', emailData);
+      } catch (emailError: any) {
+        console.error('Failed to send fulfillment email - Full error:', emailError);
+        console.error('Error message:', emailError?.message);
+        console.error('Error response:', emailError?.response);
+        // Don't fail the whole operation if email fails but log it clearly
       }
     }
 

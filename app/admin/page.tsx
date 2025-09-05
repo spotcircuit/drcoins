@@ -139,6 +139,33 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold text-white">Order Management</h1>
           <div className="flex gap-2">
             <button
+              onClick={async () => {
+                const email = prompt('Enter email address for test:');
+                if (email) {
+                  try {
+                    const res = await fetch('/api/test-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`Test email sent! Check ${email} and Resend logs. Email ID: ${data.emailId}`);
+                    } else {
+                      alert(`Failed to send test email: ${data.error}`);
+                      console.error('Email error details:', data.details);
+                    }
+                  } catch (err) {
+                    alert('Error sending test email - check console');
+                    console.error(err);
+                  }
+                }
+              }}
+              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+            >
+              Test Email
+            </button>
+            <button
               onClick={fetchOrders}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
@@ -231,14 +258,25 @@ export default function AdminPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {order.status === 'paid' && order.fulfillmentStatus !== 'fulfilled' && (
-                        <button
-                          onClick={() => markAsFulfilled(order.id)}
-                          className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                        >
-                          Mark Fulfilled
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {order.status === 'paid' && order.fulfillmentStatus !== 'fulfilled' && (
+                          <button
+                            onClick={() => markAsFulfilled(order.id)}
+                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                          >
+                            Mark Fulfilled
+                          </button>
+                        )}
+                        {order.fulfillmentStatus === 'fulfilled' && (
+                          <button
+                            onClick={() => markAsFulfilled(order.id, true)}
+                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                            title="Resend fulfillment email"
+                          >
+                            📧 Resend
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

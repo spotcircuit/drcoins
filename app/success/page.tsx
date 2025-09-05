@@ -14,6 +14,7 @@ function SuccessContent() {
   const [videoSrc, setVideoSrc] = useState('');
   const [celebrationMessage, setCelebrationMessage] = useState('');
   const [confettiItems, setConfettiItems] = useState<Array<{emoji: string, left: string, delay: string, duration: string}>>([]);
+  const [showPlayButton, setShowPlayButton] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -54,21 +55,32 @@ function SuccessContent() {
 
   useEffect(() => {
     if (videoRef.current && videoSrc) {
-      // Mute first for autoplay to work
-      videoRef.current.muted = true;
-      videoRef.current.play().then(() => {
-        // Try to unmute after playing starts
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.muted = false;
-            videoRef.current.volume = 0.5;
-          }
-        }, 100);
-      }).catch(e => {
-        console.log('Video autoplay failed:', e);
+      // Try to play with sound first
+      videoRef.current.muted = false;
+      videoRef.current.volume = 0.5;
+      
+      videoRef.current.play().catch(() => {
+        // If that fails, try muted
+        if (videoRef.current) {
+          videoRef.current.muted = true;
+          videoRef.current.play().catch(() => {
+            // If autoplay completely fails, show play button
+            setShowPlayButton(true);
+            console.log('Autoplay failed, showing play button');
+          });
+        }
       });
     }
   }, [videoSrc]);
+
+  const handlePlayVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current.volume = 0.5;
+      videoRef.current.play();
+      setShowPlayButton(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-pink-600 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -82,10 +94,20 @@ function SuccessContent() {
             loop
             playsInline
             autoPlay
-            muted
             controls={false}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 to-transparent" />
+          {showPlayButton && (
+            <button
+              onClick={handlePlayVideo}
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full p-4 hover:bg-white/30 transition-all"
+              aria-label="Play celebration sound"
+            >
+              <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </button>
+          )}
         </div>
       )}
 
