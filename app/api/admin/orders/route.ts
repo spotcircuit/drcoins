@@ -183,8 +183,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the session
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Get the session with expanded customer
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['customer', 'customer_details']
+    });
+    
+    // Get email from various sources
+    let customerEmail = session.customer_email;
+    
+    // If no email in session, check customer details
+    if (!customerEmail && session.customer_details) {
+      customerEmail = session.customer_details.email;
+    }
+    
+    // If still no email, check customer object
+    if (!customerEmail && session.customer) {
+      if (typeof session.customer === 'string') {
+        const customer = await stripe.customers.retrieve(session.customer);
+        customerEmail = customer.email;
+      } else {
+        customerEmail = session.customer.email;
+      }
+    }
+    
+    console.log('Email sources checked:');
+    console.log('- session.customer_email:', session.customer_email);
+    console.log('- session.customer_details?.email:', session.customer_details?.email);
+    console.log('- Final customerEmail:', customerEmail);
 
     // We need to store fulfillment status in payment intent metadata
     // since we can't update checkout session metadata after creation
@@ -216,12 +241,12 @@ export async function POST(req: NextRequest) {
 
     console.log('About to check email conditions:');
     console.log('- sendEmail:', sendEmail);
-    console.log('- session.customer_email:', session.customer_email);
-    console.log('- condition result:', !!(sendEmail && session.customer_email));
+    console.log('- customerEmail:', customerEmail);
+    console.log('- condition result:', !!(sendEmail && customerEmail));
     
-    if (sendEmail && session.customer_email) {
+    if (sendEmail && customerEmail) {
       // Send fulfillment email directly using Resend
-      console.log('INSIDE EMAIL BLOCK - Attempting to send email to:', session.customer_email);
+      console.log('INSIDE EMAIL BLOCK - Attempting to send email to:', customerEmail);
       console.log('Resend API key exists:', !!process.env.RESEND_API_KEY);
       
       try {
@@ -229,7 +254,7 @@ export async function POST(req: NextRequest) {
         
         const emailData = await resend.emails.send({
           from: 'Dr. Coins <noreply@dr-coins.com>',
-          to: session.customer_email,
+          to: customerEmail,
           subject: 'Your Dr. Coins Order Has Been Delivered! 🎉',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -257,7 +282,7 @@ export async function POST(req: NextRequest) {
           text: `Your Dr. Coins order has been delivered to LiveMe ID: ${session.metadata?.liveMeId}. Amount: $${((session.amount_total || 0) / 100).toFixed(2)}`
         });
         
-        console.log('Fulfillment email sent to:', session.customer_email, 'Email ID:', emailData.data?.id);
+        console.log('Fulfillment email sent to:', customerEmail, 'Email ID:', emailData.data?.id);
         console.log('Full email response:', emailData);
       } catch (emailError: any) {
         console.error('Failed to send fulfillment email - Full error:', emailError);
@@ -270,7 +295,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true,
       message: `Order ${status || 'fulfilled'}`,
-      customerEmail: session.customer_email || (session.customer as any)?.email
+      customerEmail: customerEmail,
+      emailSent: sendEmail && !!customerEmail
     });
 
   } catch (error: any) {
