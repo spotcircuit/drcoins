@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { Resend } from 'resend';
+import { getSenderEmail } from '@/lib/email-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 console.log('Resend initialized with key starting:', process.env.RESEND_API_KEY?.substring(0, 10));
@@ -253,7 +254,7 @@ export async function POST(req: NextRequest) {
         const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
         
         const emailData = await resend.emails.send({
-          from: 'Dr. Coins <noreply@dr-coins.com>',
+          from: getSenderEmail(),
           to: customerEmail,
           subject: 'Your Dr. Coins Order Has Been Delivered! 🎉',
           html: `

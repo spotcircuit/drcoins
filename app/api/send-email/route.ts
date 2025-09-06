@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { getSenderEmail } from '@/lib/email-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // Send email using Resend
     const data = await resend.emails.send({
-      from: 'Dr. Coins <noreply@dr-coins.com>',
+      from: getSenderEmail(),
       to: Array.isArray(to) ? to : [to],
       subject,
       html: html || '',
