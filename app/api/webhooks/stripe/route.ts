@@ -42,25 +42,26 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object as Stripe.Checkout.Session;
+        const customerEmail = session.customer_details?.email || session.customer_email;
         console.log('Payment successful:', session.id);
-        console.log('Customer email:', session.customer_email);
+        console.log('Customer email:', customerEmail);
         console.log('Amount:', session.amount_total);
         console.log('LiveMe ID:', session.metadata?.liveMeId);
         console.log('Items purchased:', session.metadata?.items);
-        
+
         // Send order confirmation email to customer
-        if (session.customer_email) {
+        if (customerEmail) {
           const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
-          
+
           try {
-            console.log('Attempting to send payment success email to:', session.customer_email);
+            console.log('Attempting to send payment success email to:', customerEmail);
             console.log('Using APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
-            
+
             const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                to: session.customer_email,
+                to: customerEmail,
                 subject: 'Payment Successful - Dr. Coins',
                 html: `
                   <h2>Thank you for your purchase!</h2>
@@ -77,9 +78,9 @@ export async function POST(req: NextRequest) {
                 text: `Payment Successful - Thank you for your purchase of $${((session.amount_total || 0) / 100).toFixed(2)}. Your order is being processed and you will receive another email once it has been fulfilled.`
               })
             });
-            
+
             const emailResult = await emailResponse.json();
-            
+
             if (!emailResponse.ok) {
               console.error('Failed to send payment success email:', emailResult);
             } else {
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
             console.error('Error sending payment success email:', error);
           }
         }
-        
+
         // Notify admin of new order
         if (process.env.ADMIN_EMAIL) {
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
@@ -100,13 +101,13 @@ export async function POST(req: NextRequest) {
               subject: `New Order - ${session.metadata?.liveMeId || 'No LiveMe ID'}`,
               html: `
                 <h2>New Order Received</h2>
-                <p><strong>Customer:</strong> ${session.customer_email}</p>
+                <p><strong>Customer:</strong> ${customerEmail}</p>
                 <p><strong>LiveMe ID:</strong> ${session.metadata?.liveMeId || 'Not provided'}</p>
                 <p><strong>Amount:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
                 <p><strong>Items:</strong> ${session.metadata?.items}</p>
                 <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/admin">View in Admin Panel</a></p>
               `,
-              text: `New order from ${session.customer_email} for $${((session.amount_total || 0) / 100).toFixed(2)}`
+              text: `New order from ${customerEmail} for $${((session.amount_total || 0) / 100).toFixed(2)}`
             })
           });
         }
