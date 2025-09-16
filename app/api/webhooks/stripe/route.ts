@@ -6,6 +6,14 @@ import { getSenderEmail } from '@/lib/email-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Handle GET requests for webhook verification
+export async function GET() {
+  return NextResponse.json({
+    message: 'Stripe webhook endpoint is active',
+    timestamp: new Date().toISOString()
+  });
+}
+
 export async function POST(req: NextRequest) {
   let body;
   try {
