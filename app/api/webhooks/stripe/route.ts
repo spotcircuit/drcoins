@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
+import { Resend } from 'resend';
+import { getSenderEmail } from '@/lib/email-config';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   let body;
@@ -54,6 +58,7 @@ export async function POST(req: NextRequest) {
           const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
 
           try {
+<<<<<<< HEAD
             console.log('Attempting to send payment success email to:', customerEmail);
             console.log('Using APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
 
@@ -86,6 +91,31 @@ export async function POST(req: NextRequest) {
             } else {
               console.log('Payment success email sent successfully:', emailResult);
             }
+=======
+            console.log('Attempting to send payment success email to:', session.customer_email);
+
+            const emailData = await resend.emails.send({
+              from: getSenderEmail(),
+              to: session.customer_email,
+              bcc: 'drcoins73@gmail.com',
+              subject: 'Payment Successful - Dr. Coins',
+              html: `
+                <h2>Thank you for your purchase!</h2>
+                <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been successfully processed.</p>
+                ${session.metadata?.liveMeId ? `<p><strong>LiveMe ID:</strong> ${session.metadata.liveMeId}</p>` : ''}
+                <h3>Items Purchased:</h3>
+                <ul>
+                  ${items.map((item: any) => `<li>${item.quantity}x ${item.name} - $${item.price.toFixed(2)}</li>`).join('')}
+                </ul>
+                <p><strong>What's next?</strong></p>
+                <p>Your order is being processed and your coins will be delivered to your LiveMe account shortly. You will receive another email notification once your order has been successfully fulfilled.</p>
+                <p>If you have any questions, please don't hesitate to contact our support team.</p>
+              `,
+              text: `Payment Successful - Thank you for your purchase of $${((session.amount_total || 0) / 100).toFixed(2)}. Your order is being processed and you will receive another email once it has been fulfilled.`
+            });
+
+            console.log('Payment success email sent successfully:', emailData);
+>>>>>>> 1680d43 (Fixed payment success email not sending and added BCC)
           } catch (error) {
             console.error('Error sending payment success email:', error);
           }

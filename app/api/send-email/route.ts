@@ -6,7 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
-    const { to, subject, html, text } = await req.json();
+    const { to, subject, html, text, bcc } = await req.json();
 
     if (!to || !subject || (!html && !text)) {
       return NextResponse.json(
@@ -15,14 +15,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send email using Resend
-    const data = await resend.emails.send({
+    // Prepare email data
+    const emailData: any = {
       from: getSenderEmail(),
       to: Array.isArray(to) ? to : [to],
       subject,
       html: html || '',
       text: text || ''
-    });
+    };
+
+    // Add BCC if provided
+    if (bcc) {
+      emailData.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    }
+
+    // Send email using Resend
+    const data = await resend.emails.send(emailData);
 
     console.log('Email sent successfully:', data);
 

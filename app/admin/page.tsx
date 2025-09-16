@@ -166,6 +166,32 @@ export default function AdminPage() {
               Test Email
             </button>
             <button
+              onClick={async () => {
+                const email = prompt('Enter email address for webhook test:');
+                if (email) {
+                  try {
+                    const res = await fetch('/api/test-webhook', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`Test webhook email sent! Check ${email} and drcoins73@gmail.com. Email ID: ${data.emailId}`);
+                    } else {
+                      alert(`Failed to send test webhook email: ${data.error}`);
+                    }
+                  } catch (err) {
+                    alert('Error sending test webhook email - check console');
+                    console.error(err);
+                  }
+                }
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            >
+              Test Webhook
+            </button>
+            <button
               onClick={fetchOrders}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
