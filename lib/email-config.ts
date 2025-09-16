@@ -5,10 +5,10 @@ export const emailConfig = {
   // Default sender email
   // IMPORTANT: This domain must be verified in your Resend account
   // To verify: Go to Resend Dashboard > Domains > Add Domain
-  fromEmail: 'Dr. Coins <onboarding@resend.dev>', // Using Resend's test domain for now
-  
-  // Production sender email (use after domain verification)
-  // fromEmail: 'Dr. Coins <noreply@dr-coins.com>',
+  fromEmail: 'Dr. Coins <noreply@dr-coins.com>', // Change after domain verification
+
+  // Test domain (fallback)
+  // fromEmail: 'Dr. Coins <onboarding@resend.dev>',
   
   // Reply-to email for customer support
   replyTo: 'support@dr-coins.com',
@@ -29,11 +29,6 @@ export const emailConfig = {
 
 // Helper to get the sender email
 export function getSenderEmail(): string {
-  // You can add logic here to use different emails for dev/staging/production
-  if (process.env.NODE_ENV === 'development') {
-    return 'Dr. Coins <onboarding@resend.dev>';
-  }
-  
-  // For production, ensure domain is verified
-  return emailConfig.fromEmail;
+  // Use environment variable if set, otherwise fall back to config
+  return process.env.FROM_EMAIL || emailConfig.fromEmail;
 }
