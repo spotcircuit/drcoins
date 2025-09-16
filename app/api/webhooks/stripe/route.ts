@@ -58,45 +58,11 @@ export async function POST(req: NextRequest) {
           const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
 
           try {
-<<<<<<< HEAD
             console.log('Attempting to send payment success email to:', customerEmail);
-            console.log('Using APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
-
-            const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                to: customerEmail,
-                subject: 'Payment Successful - Dr. Coins',
-                html: `
-                  <h2>Thank you for your purchase!</h2>
-                  <p>Your payment of $${((session.amount_total || 0) / 100).toFixed(2)} has been successfully processed.</p>
-                  ${session.metadata?.liveMeId ? `<p><strong>LiveMe ID:</strong> ${session.metadata.liveMeId}</p>` : ''}
-                  <h3>Items Purchased:</h3>
-                  <ul>
-                    ${items.map((item: any) => `<li>${item.quantity}x ${item.name} - $${item.price.toFixed(2)}</li>`).join('')}
-                  </ul>
-                  <p><strong>What's next?</strong></p>
-                  <p>Your order is being processed and your coins will be delivered to your LiveMe account shortly. You will receive another email notification once your order has been successfully fulfilled.</p>
-                  <p>If you have any questions, please don't hesitate to contact our support team.</p>
-                `,
-                text: `Payment Successful - Thank you for your purchase of $${((session.amount_total || 0) / 100).toFixed(2)}. Your order is being processed and you will receive another email once it has been fulfilled.`
-              })
-            });
-
-            const emailResult = await emailResponse.json();
-
-            if (!emailResponse.ok) {
-              console.error('Failed to send payment success email:', emailResult);
-            } else {
-              console.log('Payment success email sent successfully:', emailResult);
-            }
-=======
-            console.log('Attempting to send payment success email to:', session.customer_email);
 
             const emailData = await resend.emails.send({
               from: getSenderEmail(),
-              to: session.customer_email,
+              to: customerEmail,
               bcc: 'drcoins73@gmail.com',
               subject: 'Payment Successful - Dr. Coins',
               html: `
@@ -115,7 +81,6 @@ export async function POST(req: NextRequest) {
             });
 
             console.log('Payment success email sent successfully:', emailData);
->>>>>>> 1680d43 (Fixed payment success email not sending and added BCC)
           } catch (error) {
             console.error('Error sending payment success email:', error);
           }
