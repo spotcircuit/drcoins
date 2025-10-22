@@ -31,7 +31,7 @@ export default function BuyNowButton({
     setShowLiveMeModal(true);
   };
 
-  const proceedWithCheckout = async (liveMeId: string) => {
+  const proceedWithCheckout = async (liveMeId: string, email: string) => {
     setLoading(true);
     setError(null);
 
@@ -41,14 +41,15 @@ export default function BuyNowButton({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           items: [{
             name: item.name,
             description: item.description,
             price: item.price,
             quantity: item.quantity || 1
           }],
-          liveMeId: liveMeId
+          liveMeId: liveMeId,
+          email: email
         }),
       });
 
@@ -94,9 +95,9 @@ export default function BuyNowButton({
           setShowLiveMeModal(false);
           setError(null);
         }}
-        onConfirmAction={async (id) => {
+        onConfirmAction={async (id, email) => {
           setShowLiveMeModal(false);
-          await proceedWithCheckout(id);
+          await proceedWithCheckout(id, email);
         }}
         initialValue=""
       />

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { Resend } from 'resend';
 import { getSenderEmail } from '@/lib/email-config';
+import { cache } from '@/lib/cache';
 
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 console.log('Resend initialized with key starting:', process.env.RESEND_API_KEY?.substring(0, 10));
@@ -33,6 +34,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Check cache first
+    const cachedOrders = cache.get<any[]>('admin-orders');
+    if (cachedOrders) {
+      return NextResponse.json({ orders: cachedOrders, cached: true });
+    }
+
+    console.log('Cache MISS for admin-orders - fetching from Stripe');
+
     // Get recent checkout sessions with full details
     const sessions = await stripe.checkout.sessions.list({
       limit: 100,
@@ -149,7 +158,10 @@ export async function GET(req: NextRequest) {
       };
     }));
 
-    return NextResponse.json({ orders });
+    // Store in cache
+    cache.set('admin-orders', orders);
+
+    return NextResponse.json({ orders, cached: false });
   } catch (error: any) {
     console.error('Admin orders error:', error);
     return NextResponse.json(
@@ -293,7 +305,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    // Invalidate cache when order is updated
+    cache.invalidate('admin-orders');
+
+    return NextResponse.json({
       success: true,
       message: `Order ${status || 'fulfilled'}`,
       customerEmail: customerEmail,

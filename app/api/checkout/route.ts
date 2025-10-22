@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { checkoutConfig, getBillingAddressConfig } from '@/lib/checkout-config';
+import { getRateForEmail } from '@/lib/pricing-rates';
 
 export async function GET() {
   return NextResponse.json({
@@ -86,6 +87,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Get the applied rate for this customer
+    let appliedRate = 87; // default rate
+    try {
+      appliedRate = await getRateForEmail(email);
+    } catch (err) {
+      console.error('Failed to get rate for email, using default:', err);
+    }
+
     // Build session configuration
     const sessionConfig: any = {
       payment_method_types: checkoutConfig.paymentMethods,
@@ -94,8 +103,8 @@ export async function POST(req: NextRequest) {
           currency: 'usd',
           product_data: {
             name: item.name,
-            description: liveMeId 
-              ? `Instant delivery to LiveMe ID: ${liveMeId}` 
+            description: liveMeId
+              ? `Instant delivery to LiveMe ID: ${liveMeId}`
               : (item.description || 'Instant delivery to your LiveMe account'),
           },
           unit_amount: Math.round(item.price * 100),
@@ -108,18 +117,17 @@ export async function POST(req: NextRequest) {
       metadata: {
         orderId: Date.now().toString(),
         liveMeId: liveMeId || 'Not provided',
+        appliedRate: appliedRate.toString(),
         items: JSON.stringify(items.map(i => ({
-          name: i.name, 
-          price: i.price, 
+          name: i.name,
+          price: i.price,
           quantity: i.quantity || 1,
-          description: liveMeId 
+          description: liveMeId
             ? `Instant delivery to LiveMe ID: ${liveMeId}`
             : 'Instant delivery to your LiveMe account'
         }))),
       },
-      customer: customer?.id,
-      customer_email: email || undefined,
-      customer_creation: 'always',
+      ...(customer?.id ? { customer: customer.id } : { customer_email: email, customer_creation: 'always' }),
       billing_address_collection: getBillingAddressConfig(),
       phone_number_collection: {
         enabled: checkoutConfig.collectPhoneNumber,

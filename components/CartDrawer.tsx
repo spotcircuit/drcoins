@@ -1,13 +1,95 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import StripeCheckoutButton from './StripeCheckoutButton';
 
 export default function CartDrawer() {
   const { items, removeFromCart, updateQuantity, getTotalPrice, isOpen, setIsOpen, clearCart } = useCart();
   const [liveMeId, setLiveMeId] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [checkingRate, setCheckingRate] = useState(false);
+  const [appliedRate, setAppliedRate] = useState<number | null>(null);
+  const [isCustomRate, setIsCustomRate] = useState(false);
+
+  // Load saved email and LiveMe ID from session storage
+  useEffect(() => {
+    if (isOpen) {
+      const savedEmail = sessionStorage.getItem('email');
+      const savedLiveMeId = sessionStorage.getItem('liveMeId');
+      if (savedEmail) setEmail(savedEmail);
+      if (savedLiveMeId) setLiveMeId(savedLiveMeId);
+    }
+  }, [isOpen]);
+
+  // Check rate when email and LiveMe ID both change
+  useEffect(() => {
+    const checkRate = async () => {
+      // Only check rate when both email and LiveMe ID are filled
+      if (email && email.includes('@') && liveMeId && liveMeId.trim()) {
+        setCheckingRate(true);
+        try {
+          const res = await fetch(`/api/rates/check?email=${encodeURIComponent(email)}&liveMeId=${encodeURIComponent(liveMeId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.error) {
+              // LiveMe ID doesn't match - show error and don't apply custom rate
+              setError(data.error);
+              setAppliedRate(data.rate); // Will be global rate
+              setIsCustomRate(false);
+            } else {
+              // Clear any previous error
+              setError('');
+              setAppliedRate(data.rate);
+              setIsCustomRate(data.isCustomRate);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to check rate:', err);
+        } finally {
+          setCheckingRate(false);
+        }
+      } else {
+        setAppliedRate(null);
+        setIsCustomRate(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(checkRate, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [email, liveMeId]);
+
+  // Helper function to extract coin amount from item name
+  const getCoinsFromItemName = (name: string): number => {
+    const match = name.match(/[\d,]+/);
+    if (match) {
+      return parseInt(match[0].replace(/,/g, ''));
+    }
+    return 0;
+  };
+
+  // Calculate adjusted price based on custom rate
+  const getAdjustedPrice = (item: any): number => {
+    if (!appliedRate || appliedRate === 87) {
+      return item.price; // No adjustment needed for standard rate
+    }
+    const coins = getCoinsFromItemName(item.name);
+    if (coins > 0) {
+      return coins / appliedRate;
+    }
+    return item.price;
+  };
+
+  // Calculate total with adjusted prices
+  const getAdjustedTotal = (): number => {
+    if (!appliedRate || appliedRate === 87) {
+      return getTotalPrice();
+    }
+    return items.reduce((total, item) => {
+      return total + (getAdjustedPrice(item) * item.quantity);
+    }, 0);
+  };
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +174,18 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <div className="text-lg font-semibold">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {appliedRate && appliedRate !== 87 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm text-gray-400 line-through">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </span>
+                            <span className="text-green-600">
+                              ${(getAdjustedPrice(item) * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span>${(item.price * item.quantity).toFixed(2)}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -106,10 +199,38 @@ export default function CartDrawer() {
             <div className="border-t p-4 space-y-4">
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                <span>${getTotalPrice().toFixed(2)}</span>
+                {appliedRate && appliedRate !== 87 ? (
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm text-gray-400 line-through font-normal">
+                      ${getTotalPrice().toFixed(2)}
+                    </span>
+                    <span className="text-green-600">
+                      ${getAdjustedTotal().toFixed(2)}
+                    </span>
+                  </div>
+                ) : (
+                  <span>${getTotalPrice().toFixed(2)}</span>
+                )}
               </div>
               
               <div className="space-y-4">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (error) setError('');
+                    }}
+                    placeholder="your@email.com"
+                    className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                </div>
+
                 <div>
                   <label htmlFor="liveMeId" className="block text-sm font-medium text-gray-700 mb-1">
                     LiveMe ID <span className="text-red-500">*</span>
@@ -127,12 +248,44 @@ export default function CartDrawer() {
                   />
                   {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
                 </div>
-                
+
+                {/* Rate Display */}
+                {checkingRate && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700">Checking your rate...</p>
+                  </div>
+                )}
+                {!checkingRate && appliedRate && (
+                  <div className={`p-4 rounded-lg border-2 ${
+                    isCustomRate
+                      ? 'bg-green-50 border-green-400'
+                      : 'bg-blue-50 border-blue-300'
+                  }`}>
+                    {isCustomRate ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-2xl">🎉</span>
+                          <span className="font-bold text-green-800">Special Rate Applied!</span>
+                        </div>
+                        <p className="text-sm text-green-700">
+                          You have a custom rate of <strong>{appliedRate} coins per $1</strong>
+                          <br />
+                          <span className="text-xs text-green-600">(Standard rate: 87 coins per $1)</span>
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-blue-800">
+                        Standard rate: <strong>{appliedRate} coins per $1</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <StripeCheckoutButton
                   items={items.map(item => ({
                     name: item.name,
                     description: item.description,
-                    price: item.price,
+                    price: appliedRate && appliedRate !== 87 ? getAdjustedPrice(item) : item.price,
                     quantity: item.quantity,
                     images: item.image,
                     metadata: {
@@ -143,6 +296,7 @@ export default function CartDrawer() {
                   className="w-full"
                   isCartCheckout={true}
                   liveMeId={liveMeId.trim()}
+                  email={email.trim()}
                 />
               </div>
               

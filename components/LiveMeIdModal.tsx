@@ -6,15 +6,21 @@ import { createPortal } from 'react-dom';
 type LiveMeIdModalProps = {
   isOpen: boolean;
   onCloseAction: () => void;
-  onConfirmAction: (liveMeId: string) => void;
+  onConfirmAction: (liveMeId: string, email: string) => void;
   initialValue?: string;
 };
 
 export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, initialValue = '' }: LiveMeIdModalProps) {
   const [liveMeId, setLiveMeId] = useState(initialValue);
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Rate checking state
+  const [checkingRate, setCheckingRate] = useState(false);
+  const [appliedRate, setAppliedRate] = useState<number | null>(null);
+  const [isCustomRate, setIsCustomRate] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -23,14 +29,45 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
 
   useEffect(() => {
     if (isOpen) {
-      // Load saved LiveMe ID from session storage
+      // Load saved data from session storage
       const savedId = sessionStorage.getItem('liveMeId');
+      const savedEmail = sessionStorage.getItem('email');
       if (savedId) {
         setLiveMeId(savedId);
         setRememberMe(true);
       }
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
     }
   }, [isOpen]);
+
+  // Check rate when email is entered
+  useEffect(() => {
+    const checkRate = async () => {
+      if (email && email.includes('@')) {
+        setCheckingRate(true);
+        try {
+          const res = await fetch(`/api/rates/check?email=${encodeURIComponent(email)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setAppliedRate(data.rate);
+            setIsCustomRate(data.isCustomRate);
+          }
+        } catch (err) {
+          console.error('Failed to check rate:', err);
+        } finally {
+          setCheckingRate(false);
+        }
+      } else {
+        setAppliedRate(null);
+        setIsCustomRate(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(checkRate, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [email]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,14 +75,20 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
       setError('Please enter your LiveMe ID');
       return;
     }
+    if (!email.trim() || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
     if (rememberMe) {
       sessionStorage.setItem('liveMeId', liveMeId.trim());
+      sessionStorage.setItem('email', email.trim());
     } else {
       sessionStorage.removeItem('liveMeId');
+      sessionStorage.removeItem('email');
     }
 
-    onConfirmAction(liveMeId.trim());
+    onConfirmAction(liveMeId.trim(), email.trim());
     onCloseAction();
   };
 
@@ -70,6 +113,25 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
             
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError('');
+                  }}
+                  placeholder="your@email.com"
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                    error ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+              </div>
+
+              <div className="mb-4">
                 <label htmlFor="liveMeId" className="block text-sm font-medium text-gray-700 mb-1">
                   LiveMe ID <span className="text-red-500">*</span>
                 </label>
@@ -89,6 +151,38 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
                 {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
               </div>
 
+              {/* Rate Display */}
+              {checkingRate && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">Checking your rate...</p>
+                </div>
+              )}
+              {!checkingRate && appliedRate && (
+                <div className={`mb-4 p-4 rounded-lg border-2 ${
+                  isCustomRate
+                    ? 'bg-green-50 border-green-400'
+                    : 'bg-blue-50 border-blue-300'
+                }`}>
+                  {isCustomRate ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">🎉</span>
+                        <span className="font-bold text-green-800">Special Rate Applied!</span>
+                      </div>
+                      <p className="text-sm text-green-700">
+                        You have a custom rate of <strong>{appliedRate} coins per $1</strong>
+                        <br />
+                        <span className="text-xs text-green-600">(Standard rate: 87 coins per $1)</span>
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-blue-800">
+                      Standard rate: <strong>{appliedRate} coins per $1</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center mb-4">
                 <input
                   id="remember-me"
@@ -99,7 +193,7 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                  Remember my LiveMe ID on this device
+                  Remember my information on this device
                 </label>
               </div>
 

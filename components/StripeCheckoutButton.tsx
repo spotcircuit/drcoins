@@ -19,30 +19,38 @@ interface StripeCheckoutButtonProps {
   buttonText?: string;
   className?: string;
   liveMeId?: string;
+  email?: string;
   isCartCheckout?: boolean;
 }
 
-export default function StripeCheckoutButton({ 
-  items, 
+export default function StripeCheckoutButton({
+  items,
   buttonText = 'Checkout',
   className = '',
   liveMeId: initialLiveMeId = '',
+  email: initialEmail = '',
   isCartCheckout = false
 }: StripeCheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const [showLiveMeModal, setShowLiveMeModal] = useState(false);
   const [liveMeId, setLiveMeId] = useState(initialLiveMeId);
+  const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
 
-  // Update liveMeId when prop changes
+  // Update liveMeId and email when props change
   useEffect(() => {
     setLiveMeId(initialLiveMeId);
   }, [initialLiveMeId]);
 
-  const handleCheckout = async (idToUse?: string) => {
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
+
+  const handleCheckout = async (idToUse?: string, emailToUse?: string) => {
     const effectiveId = idToUse || liveMeId;
-    
-    // Check for LiveMe ID for all checkouts
+    const effectiveEmail = emailToUse || email;
+
+    // Check for LiveMe ID and email for all checkouts
     if (!effectiveId || !effectiveId.trim()) {
       if (isCartCheckout) {
         // For cart checkout, show error message
@@ -54,22 +62,35 @@ export default function StripeCheckoutButton({
         return;
       }
     }
-    
+
+    if (!effectiveEmail || !effectiveEmail.trim()) {
+      if (isCartCheckout) {
+        // For cart checkout, show error message
+        setError('Please enter your email address before checkout');
+        return;
+      } else {
+        // For direct checkout, show modal
+        setShowLiveMeModal(true);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       // Remove images field from items as Stripe requires absolute URLs
       const cleanItems = items.map(({ images, ...item }) => item);
-      
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           items: cleanItems,
-          liveMeId: effectiveId || null // Always send LiveMeId if available
+          liveMeId: effectiveId || null,
+          email: effectiveEmail || null
         }),
       });
 
@@ -112,9 +133,9 @@ export default function StripeCheckoutButton({
       <LiveMeIdModal
         isOpen={showLiveMeModal}
         onCloseAction={() => setShowLiveMeModal(false)}
-        onConfirmAction={async (id) => {
+        onConfirmAction={async (id, email) => {
           setLiveMeId(id);
-          await handleCheckout(id);
+          await handleCheckout(id, email);
         }}
         initialValue={liveMeId}
       />

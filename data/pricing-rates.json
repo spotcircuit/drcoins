@@ -1,0 +1,63 @@
+{
+  "globalRate": 87,
+  "customerRates": {
+    "brian@spotcircuit.com": {
+      "email": "brian@spotcircuit.com",
+      "rate": 90,
+      "type": "permanent",
+      "expiresAt": null,
+      "setBy": "admin",
+      "setAt": "2025-10-22T01:09:23.209Z"
+    },
+    "jhan4youth@gmail.com": {
+      "email": "jhan4youth@gmail.com",
+      "rate": 90,
+      "type": "permanent",
+      "expiresAt": null,
+      "setBy": "admin",
+      "setAt": "2025-10-22T01:09:23.209Z"
+    }
+  },
+  "history": [
+    {
+      "timestamp": "2025-10-22T00:46:59.058Z",
+      "action": "customer_rate_set",
+      "email": "brian@spotcircuit.com",
+      "newValue": 90,
+      "setBy": "admin",
+      "note": "[BULK]"
+    },
+    {
+      "timestamp": "2025-10-22T00:55:28.753Z",
+      "action": "customer_rate_removed",
+      "email": "brian@spotcircuit.com",
+      "oldValue": 90,
+      "setBy": "admin"
+    },
+    {
+      "timestamp": "2025-10-22T00:56:40.641Z",
+      "action": "customer_rate_set",
+      "email": "brian@spotcircuit.com",
+      "newValue": 90,
+      "setBy": "admin",
+      "note": "[BULK]"
+    },
+    {
+      "timestamp": "2025-10-22T01:09:23.209Z",
+      "action": "customer_rate_set",
+      "email": "brian@spotcircuit.com",
+      "oldValue": 90,
+      "newValue": 90,
+      "setBy": "admin",
+      "note": "[BULK]"
+    },
+    {
+      "timestamp": "2025-10-22T01:09:23.209Z",
+      "action": "customer_rate_set",
+      "email": "jhan4youth@gmail.com",
+      "newValue": 90,
+      "setBy": "admin",
+      "note": "[BULK]"
+    }
+  ]
+}

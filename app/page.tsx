@@ -9,6 +9,8 @@ import CartDrawer from "@/components/CartDrawer";
 import TermsOfService from "@/components/TermsOfService";
 import PrivacyPolicy from "@/components/PrivacyPolicy";
 import RefundPolicy from "@/components/RefundPolicy";
+import { useSeasonalTheme } from "@/hooks/useSeasonalTheme";
+import { ThemeBanner } from "@/components/ThemeBanner";
 
 // Color tokens (purple theme with teal/cyan cards)
 const brand = {
@@ -59,10 +61,16 @@ const CTA: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ classNam
 // Shop Pages
 const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoins }) => {
   const { addToCart } = useCart();
-  const [selectedCoins, setSelectedCoins] = React.useState(initialCoins || 1740);
-  const coinsPerDollar = 87;
+  const coinsPerDollar = 87; // Standard rate displayed on shop page
+
+  // Calculate min/max coins based on standard rate to maintain $20-$2000 price range
+  const minCoins = Math.round(20 * coinsPerDollar);
+  const maxCoins = Math.round(2000 * coinsPerDollar);
+  const stepCoins = Math.round(coinsPerDollar); // $1 increments
+
+  const [selectedCoins, setSelectedCoins] = React.useState(initialCoins || minCoins);
   const totalPrice = (selectedCoins / coinsPerDollar).toFixed(2);
-  
+
   React.useEffect(() => {
     if (initialCoins) {
       setSelectedCoins(initialCoins);
@@ -72,7 +80,7 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
   return (
     <Container className="py-10 lg:py-12">
       <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Shop Coins</h2>
-      
+
       {/* Custom Coin Calculator */}
       <SectionCard className="mb-8">
         <div className="relative h-64 mb-6 overflow-hidden rounded-lg">
@@ -90,18 +98,18 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Select Coin Amount: {selectedCoins.toLocaleString()} coins
             </label>
-            <input 
-              type="range" 
-              min="1740" 
-              max="174000" 
-              step="1740"
+            <input
+              type="range"
+              min={minCoins}
+              max={maxCoins}
+              step={stepCoins}
               value={selectedCoins}
               onChange={(e) => setSelectedCoins(Number(e.target.value))}
               className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
             />
             <div className="flex justify-between text-xs text-slate-600 mt-1">
-              <span>1,740 coins ($20)</span>
-              <span>174,000 coins ($2,000)</span>
+              <span>{minCoins.toLocaleString()} coins ($20)</span>
+              <span>{maxCoins.toLocaleString()} coins ($2,000)</span>
             </div>
           </div>
           <div className="text-center py-4 bg-purple-50 rounded-lg">
@@ -446,21 +454,8 @@ const PAGES = ["Home", "Shop Coins", "Shop Points", "About/FAQ"] as const;
 type Page = typeof PAGES[number] | "Admin" | "Terms" | "Privacy" | "Refunds";
 
 const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setPage }) => {
-  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
-
   const handleAdminClick = () => {
-    setShowAdminPrompt(true);
-  };
-
-  const checkAdminPassword = () => {
-    if (adminPassword === "drcoins2024") {
-      setPage("Admin");
-      setShowAdminPrompt(false);
-      setAdminPassword("");
-    } else {
-      alert("Incorrect password");
-    }
+    window.location.href = "/admin";
   };
 
   return (
@@ -503,41 +498,6 @@ const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setP
           </div>
         </Container>
       </header>
-
-      {/* Admin Password Modal */}
-      {showAdminPrompt && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Enter Admin Password</h3>
-            <input
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && checkAdminPassword()}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
-              placeholder="Password"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={checkAdminPassword}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Submit
-              </button>
-              <button
-                onClick={() => {
-                  setShowAdminPrompt(false);
-                  setAdminPassword("");
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
@@ -651,9 +611,13 @@ export default function DrCoinsMockups() {
   const [page, setPage] = useState<Page>("Home");
   const [initialCoins, setInitialCoins] = useState<number | null>(null);
 
+  // Apply theme globally (theme selector is only in admin)
+  useSeasonalTheme();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-purple-950">
       <Shell page={page} setPage={setPage} />
+      <ThemeBanner />
       <CartDrawer />
       {page === "Home" && <HomeMock setPage={setPage} setInitialCoins={setInitialCoins} />}
       {page === "Shop Coins" && <ShopCoinsMock initialCoins={initialCoins} />}
