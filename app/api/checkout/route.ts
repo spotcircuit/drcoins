@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
           name: i.name,
           price: i.price,
           quantity: i.quantity || 1,
+          amount: i.amount, // Include coin amount for proper display
           description: liveMeId
             ? `Instant delivery to LiveMe ID: ${liveMeId}`
             : 'Instant delivery to your LiveMe account'

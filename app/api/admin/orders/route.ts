@@ -140,6 +140,19 @@ export async function GET(req: NextRequest) {
         paymentMethod = 'Cash App';
       }
       
+      // Parse items and populate amount field for backward compatibility
+      const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
+      const appliedRate = session.metadata?.appliedRate ? parseFloat(session.metadata.appliedRate) : 87;
+
+      // For old orders without amount field, calculate from price and rate
+      const itemsWithAmount = items.map((item: any) => {
+        if (!item.amount && item.price && item.name?.toLowerCase().includes('coin')) {
+          // Calculate coins from price and applied rate
+          item.amount = Math.round(item.price * appliedRate);
+        }
+        return item;
+      });
+
       return {
         id: session.id,
         orderId: session.metadata?.orderId,
@@ -153,7 +166,7 @@ export async function GET(req: NextRequest) {
         status: session.payment_status,
         paymentMethod: paymentMethod,
         fulfillmentStatus: fulfillmentStatus,
-        items: session.metadata?.items ? JSON.parse(session.metadata.items) : [],
+        items: itemsWithAmount,
         created: new Date(session.created * 1000).toISOString()
       };
     }));
@@ -264,7 +277,15 @@ export async function POST(req: NextRequest) {
       
       try {
         const items = session.metadata?.items ? JSON.parse(session.metadata.items) : [];
-        
+
+        // Calculate total coins
+        const totalCoins = items.reduce((sum: number, item: any) => {
+          if (item.amount) {
+            return sum + (item.quantity * item.amount);
+          }
+          return sum;
+        }, 0);
+
         const emailData = await resend.emails.send({
           from: getSenderEmail(),
           to: customerEmail,
@@ -273,26 +294,34 @@ export async function POST(req: NextRequest) {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #7c3aed;">Order Fulfilled!</h2>
               <p>Great news! Your Dr. Coins have been delivered to your LiveMe account.</p>
-              
+
               <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="color: #1f2937; margin-top: 0;">Order Details:</h3>
                 <p><strong>LiveMe ID:</strong> ${session.metadata?.liveMeId || 'Not provided'}</p>
                 <p><strong>Amount:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
+                ${totalCoins > 0 ? `<p><strong>Total Coins:</strong> ${totalCoins.toLocaleString()}</p>` : ''}
                 <h4 style="color: #1f2937;">Items Delivered:</h4>
                 <ul>
-                  ${items.map((item: any) => `<li>${item.quantity}x ${item.name}</li>`).join('')}
+                  ${items.map((item: any) => {
+                    let itemText = `${item.quantity}x ${item.name}`;
+                    if (item.amount) {
+                      const itemCoins = item.quantity * item.amount;
+                      itemText += ` (${itemCoins.toLocaleString()} coins)`;
+                    }
+                    return `<li>${itemText}</li>`;
+                  }).join('')}
                 </ul>
               </div>
-              
+
               <p>Your coins should now be available in your LiveMe account. If you have any issues, please contact support.</p>
-              
+
               <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
                 Thank you for your purchase!<br>
                 - The Dr. Coins Team
               </p>
             </div>
           `,
-          text: `Your Dr. Coins order has been delivered to LiveMe ID: ${session.metadata?.liveMeId}. Amount: $${((session.amount_total || 0) / 100).toFixed(2)}`
+          text: `Your Dr. Coins order has been delivered to LiveMe ID: ${session.metadata?.liveMeId}. Amount: $${((session.amount_total || 0) / 100).toFixed(2)}${totalCoins > 0 ? `. Total Coins: ${totalCoins.toLocaleString()}` : ''}`
         });
         
         console.log('Fulfillment email sent to:', customerEmail, 'Email ID:', emailData.data?.id);

@@ -214,11 +214,17 @@ const ShopPointsMock: React.FC = () => {
           {[
             {name: "Pin your Moment", points: 20, price: 20.00, icon: "📌"},
             {name: "Remove Muting", points: 30, price: 30.00, icon: "🔊"},
+            {name: "Rename Fan Group", points: 40, price: 40.00, icon: "✏️"},
+            {name: "Ghost card", points: 40, price: 40.00, icon: "👻"},
+            {name: "1-HR XP card", points: 40, price: 40.00, icon: "⚡"},
             {name: "Unban Broadcasting", points: 50, price: 50.00, icon: "📡"},
             {name: "Feature Pin (15 min)", points: 60, price: 60.00, icon: "⭐"},
             {name: "Diamond Hiding Card (30 days)", points: 80, price: 80.00, icon: "💎"},
+            {name: "Restore Highest Fan Tag", points: 80, price: 80.00, icon: "🏆"},
+            {name: "12-HR XP card", points: 80, price: 80.00, icon: "⚡⚡"},
             {name: "Unban Account", points: 100, price: 100.00, icon: "🔓"},
-            {name: "Ghost Comment Card (7 days)", points: 200, price: 200.00, icon: "👻"},
+            {name: "Ghost Comment Card (7 days)", points: 200, price: 200.00, icon: "💬"},
+            {name: "Ghost visitor records card", points: 200, price: 200.00, icon: "👁️"},
             {name: "Send Official System Message", points: 300, price: 300.00, icon: "📢"},
             {name: "Remove Game Tab (30 days)", points: 300, price: 300.00, icon: "🎮"},
           ].map((feature) => (

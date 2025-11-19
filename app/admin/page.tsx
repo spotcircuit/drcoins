@@ -646,6 +646,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3 text-left">LiveMe ID</th>
                     <th className="px-4 py-3 text-left">Items</th>
                     <th className="px-4 py-3 text-left">Amount</th>
+                    <th className="px-4 py-3 text-left">Total Coins</th>
                     <th className="px-4 py-3 text-left">Payment</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Actions</th>
@@ -680,6 +681,17 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         ${order.amount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const totalCoins = order.items.reduce((sum: number, item: any) => {
+                            if (item.amount) {
+                              return sum + (item.quantity * item.amount);
+                            }
+                            return sum;
+                          }, 0);
+                          return totalCoins > 0 ? totalCoins.toLocaleString() : '-';
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded text-xs inline-flex items-center gap-1 ${
@@ -1428,6 +1440,7 @@ export default function AdminPage() {
                         <th className="px-4 py-3 text-left">Date</th>
                         <th className="px-4 py-3 text-left">Items</th>
                         <th className="px-4 py-3 text-left">Amount</th>
+                        <th className="px-4 py-3 text-left">Total Coins</th>
                         <th className="px-4 py-3 text-left">Payment</th>
                         <th className="px-4 py-3 text-left">Status</th>
                       </tr>
@@ -1446,6 +1459,17 @@ export default function AdminPage() {
                             ))}
                           </td>
                           <td className="px-4 py-3">${order.amount.toFixed(2)}</td>
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const totalCoins = order.items.reduce((sum: number, item: any) => {
+                                if (item.amount) {
+                                  return sum + (item.quantity * item.amount);
+                                }
+                                return sum;
+                              }, 0);
+                              return totalCoins > 0 ? totalCoins.toLocaleString() : '-';
+                            })()}
+                          </td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-1 rounded text-xs bg-gray-600">
                               {order.paymentMethod}

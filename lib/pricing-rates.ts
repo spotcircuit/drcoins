@@ -102,20 +102,30 @@ async function loadRatesFromFile(): Promise<PricingRates> {
 async function saveRatesToBlob(rates: PricingRates): Promise<void> {
   try {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      throw new Error('BLOB_READ_WRITE_TOKEN not configured');
+      const error = 'BLOB_READ_WRITE_TOKEN environment variable not set in Vercel';
+      console.error(error);
+      throw new Error(error);
     }
+
+    console.log('Attempting to save to Vercel Blob...');
+    console.log('Token starts with:', process.env.BLOB_READ_WRITE_TOKEN.substring(0, 20));
 
     const blob = await put(BLOB_FILENAME, JSON.stringify(rates, null, 2), {
       access: 'public',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
-    console.log('Rates saved to Vercel Blob:', blob.url);
+    console.log('✅ Rates successfully saved to Vercel Blob:', blob.url);
     // Invalidate cache after saving
     cache.invalidate(CACHE_KEY);
-  } catch (error) {
-    console.error('Error saving pricing rates to blob:', error);
-    throw new Error('Failed to save pricing rates to blob');
+  } catch (error: any) {
+    console.error('❌ Error saving pricing rates to blob:', {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      details: error
+    });
+    throw new Error(`Failed to save pricing rates to blob: ${error.message}`);
   }
 }
 
