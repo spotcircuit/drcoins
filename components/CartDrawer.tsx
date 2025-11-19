@@ -111,14 +111,14 @@ export default function CartDrawer() {
       />
       
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 transform transition-transform text-gray-900">
+      <div className="fixed right-0 top-0 h-full w-full max-w-md shadow-xl z-50 transform transition-transform" style={{backgroundColor: 'var(--theme-input-bg)', color: 'var(--theme-text)'}}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Your Cart</h2>
+          <div className="flex items-center justify-between p-4 border-b" style={{borderColor: 'var(--theme-input-border)'}}>
+            <h2 className="text-xl font-bold">Your Cart</h2>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
+              className="p-2 hover:opacity-80 rounded-lg transition-opacity"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -129,14 +129,14 @@ export default function CartDrawer() {
           {/* Cart Items */}
           <div className="flex-1 overflow-y-auto p-4">
             {items.length === 0 ? (
-              <p className="text-center text-gray-500 mt-8">Your cart is empty</p>
+              <p className="text-center opacity-60 mt-8">Your cart is empty</p>
             ) : (
               <div className="space-y-4">
                 {items.map((item) => (
-                  <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                  <div key={item.id} className="rounded-lg p-4" style={{backgroundColor: 'var(--theme-card-bg)'}}>
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                        <h3 className="font-semibold">{item.name}</h3>
                         {liveMeId && (
                           <p className="text-sm text-purple-600 font-medium">LiveMe ID: {liveMeId}</p>
                         )}
@@ -161,19 +161,21 @@ export default function CartDrawer() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 rounded-lg bg-purple-100 hover:bg-purple-200 flex items-center justify-center text-purple-700 font-bold"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold hover:opacity-80 transition-opacity"
+                          style={{backgroundColor: 'var(--theme-button-bg)', color: 'white'}}
                         >
                           -
                         </button>
-                        <span className="w-8 text-center text-gray-900 font-medium">{item.quantity}</span>
+                        <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-lg bg-purple-100 hover:bg-purple-200 flex items-center justify-center text-purple-700 font-bold"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold hover:opacity-80 transition-opacity"
+                          style={{backgroundColor: 'var(--theme-button-bg)', color: 'white'}}
                         >
                           +
                         </button>
                       </div>
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-lg font-semibold">
                         {appliedRate && appliedRate !== 87 ? (
                           <div className="flex flex-col items-end">
                             <span className="text-sm text-gray-400 line-through">
@@ -196,12 +198,12 @@ export default function CartDrawer() {
 
           {/* Footer */}
           {items.length > 0 && (
-            <div className="border-t border-gray-200 p-4 space-y-4">
-              <div className="flex justify-between text-lg font-bold text-gray-900">
+            <div className="border-t p-4 space-y-4" style={{borderColor: 'var(--theme-input-border)'}}>
+              <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
                 {appliedRate && appliedRate !== 87 ? (
                   <div className="flex flex-col items-end">
-                    <span className="text-sm text-gray-400 line-through font-normal">
+                    <span className="text-sm opacity-60 line-through font-normal">
                       ${getTotalPrice().toFixed(2)}
                     </span>
                     <span className="text-green-600">
@@ -212,10 +214,26 @@ export default function CartDrawer() {
                   <span>${getTotalPrice().toFixed(2)}</span>
                 )}
               </div>
-              
+
+              {/* Total Coins Display */}
+              {(() => {
+                const totalCoins = items.reduce((sum, item) => {
+                  if (item.amount) {
+                    return sum + (item.quantity * item.amount);
+                  }
+                  return sum;
+                }, 0);
+                return totalCoins > 0 ? (
+                  <div className="flex justify-between text-sm font-medium opacity-80">
+                    <span>Total Coins:</span>
+                    <span>{totalCoins.toLocaleString()} coins</span>
+                  </div>
+                ) : null;
+              })()}
+
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="email" className="block text-sm font-medium mb-1">
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -232,7 +250,7 @@ export default function CartDrawer() {
                 </div>
 
                 <div>
-                  <label htmlFor="liveMeId" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="liveMeId" className="block text-sm font-medium mb-1">
                     LiveMe ID <span className="text-red-500">*</span>
                   </label>
                   <input
