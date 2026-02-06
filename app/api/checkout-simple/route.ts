@@ -4,8 +4,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'Checkout API is accessible',
     env: {
-      hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
-      hasPublishableKey: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      hasAuthorizeNetKey: !!process.env.AUTHORIZENET_API_LOGIN_ID,
       appUrl: process.env.NEXT_PUBLIC_APP_URL
     }
   });

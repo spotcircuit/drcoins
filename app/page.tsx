@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from "react";
-import StripeCheckoutButton from "@/components/StripeCheckoutButton";
 import BuyNowButton from "@/components/BuyNowButton";
 import { useCart } from "@/contexts/CartContext";
 import CartIcon from "@/components/CartIcon";
@@ -294,8 +293,8 @@ const AdminMock: React.FC = () => (
       ))}
     </div>
 
-    {/* Recent Stripe Orders */}
-    <SectionCard title="Recent Stripe Orders" className="mb-8">
+    {/* Recent Orders */}
+    <SectionCard title="Recent Orders" className="mb-8">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -441,8 +440,8 @@ const AboutFAQMock: React.FC = () => (
       {[
         {q: "How fast is delivery?", a: "Most orders complete within minutes after ID verification."},
         {q: "Are you official?", a: "Yes, we&apos;re an approved LiveMe reseller with authorization to provide coins and nobility points."},
-        {q: "What payment methods do you accept?", a: "We accept all major credit/debit cards through Stripe, as well as Klarna, Zelle, Apple Cash, Venmo, and more through our support team."},
-        {q: "Is my payment information secure?", a: "Absolutely! We use Stripe for payment processing, which is PCI-compliant and uses industry-standard encryption to protect your data."},
+        {q: "What payment methods do you accept?", a: "We accept all major credit/debit cards through our secure payment processor, as well as Klarna, Zelle, Apple Cash, Venmo, and more through our support team."},
+        {q: "Is my payment information secure?", a: "Absolutely! We use industry-standard encryption and PCI-compliant payment processing to protect your data. Your payment information is never stored on our servers."},
         {q: "What if I enter the wrong LiveMe ID?", a: "Please double-check your ID before purchase. Incorrect IDs may result in a 10% processing fee for order corrections."},
         {q: "Can I get a refund?", a: "Due to the digital nature of our products, all sales are final once delivered. However, we&apos;ll work with you if there&apos;s an issue with your order."},
       ].map((faq) => (

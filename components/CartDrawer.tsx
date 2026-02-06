@@ -97,7 +97,7 @@ export default function CartDrawer() {
       setError('Please enter your LiveMe ID');
       return;
     }
-    // Proceed with checkout - this will be handled by the StripeCheckoutButton
+    // Proceed with checkout - this will be handled by the checkout button
   };
 
   if (!isOpen) return null;

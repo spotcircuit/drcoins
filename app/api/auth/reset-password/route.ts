@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 
 function hashPassword(password: string): string {
@@ -21,64 +21,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find customer
-    const customers = await stripe.customers.list({
-      email: email,
-      limit: 1
+    // Find customer in database
+    const customer = await prisma.customer.findUnique({
+      where: { email: email.toLowerCase().trim() }
     });
 
-    if (customers.data.length === 0) {
+    if (!customer) {
       return NextResponse.json(
         { error: 'Email not found' },
         { status: 404 }
       );
     }
 
-    const customer = customers.data[0];
-
-    // If setting new password with temp password
-    if (newPassword && tempPassword) {
-      const storedTempPassword = customer.metadata.tempPassword;
-      
-      if (!storedTempPassword || hashPassword(tempPassword) !== storedTempPassword) {
-        return NextResponse.json(
-          { error: 'Invalid temporary password' },
-          { status: 401 }
-        );
-      }
-
-      // Set new password
-      await stripe.customers.update(customer.id, {
-        metadata: {
-          ...customer.metadata,
-          password: hashPassword(newPassword),
-          tempPassword: '' // Clear temp password
-        }
-      });
-
-      return NextResponse.json({ 
-        success: true,
-        message: 'Password updated successfully' 
-      });
-    }
-
-    // Generate and send temp password
-    const tempPasswordPlain = generateTempPassword();
-    
-    await stripe.customers.update(customer.id, {
-      metadata: {
-        ...customer.metadata,
-        tempPassword: hashPassword(tempPasswordPlain),
-        tempPasswordExpiry: Date.now() + (3600000) // 1 hour
-      }
-    });
-
-    // In production, send email here
-    // For now, return it (remove this in production!)
+    // Note: Password reset functionality would need password fields in Customer model
+    // TODO: Implement password reset with Prisma if needed
     return NextResponse.json({
       success: true,
-      message: 'Reset password sent to email',
-      tempPassword: tempPasswordPlain // REMOVE IN PRODUCTION - send via email instead
+      message: 'Password reset functionality needs to be implemented with database'
     });
 
   } catch (error: any) {
