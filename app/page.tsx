@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from "react";
-import StripeCheckoutButton from "@/components/StripeCheckoutButton";
 import BuyNowButton from "@/components/BuyNowButton";
 import { useCart } from "@/contexts/CartContext";
 import CartIcon from "@/components/CartIcon";
