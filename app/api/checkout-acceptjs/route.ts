@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         const updatedOrder = await prisma.order.update({
           where: { id: order.id },
           data: {
-            status: 'COMPLETED',
+            status: 'COMPLETED' as any,
             authNetTransactionId: transactionResult.transactionId,
             authNetResponseCode: transactionResult.responseCode,
             authNetAuthCode: transactionResult.authCode || null,
@@ -163,13 +163,21 @@ export async function POST(req: NextRequest) {
         });
 
         // Refresh order to get latest items (ensure we have the most up-to-date data)
-        const finalOrder = await prisma.order.findUnique({
+        const finalOrderResult = await prisma.order.findUnique({
           where: { id: order.id },
           include: { items: true }
         });
 
+        if (!finalOrderResult) {
+          throw new Error('Order not found after payment processing');
+        }
+
+        // TypeScript now knows finalOrderResult is non-null after the check
+        // Using non-null assertion to satisfy TypeScript's strict null checks
+        const finalOrder: NonNullable<typeof finalOrderResult> = finalOrderResult;
+
         // Send customer email
-        if (customer.email && finalOrder) {
+        if (customer.email) {
           try {
             const totalCoins = finalOrder.items.reduce((sum, item) =>
               sum + (item.amount ? item.quantity * item.amount : 0), 0
