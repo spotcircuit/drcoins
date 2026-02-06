@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRateForEmail, getRates } from '@/lib/pricing-rates';
-import { stripe } from '@/lib/stripe';
+import { prisma } from '@/lib/prisma';
 
 // Helper function to verify LiveMe ID matches the email
 async function verifyLiveMeId(email: string, liveMeId: string): Promise<boolean> {
   try {
     if (!email || !liveMeId) return false;
 
-    // Find customer by email in Stripe
-    const customers = await stripe.customers.list({
-      email: email.toLowerCase().trim(),
-      limit: 1
+    // Find customer by email in database
+    const customer = await prisma.customer.findUnique({
+      where: { email: email.toLowerCase().trim() }
     });
 
-    if (customers.data.length === 0) {
+    if (!customer) {
       // No existing customer - allow it (first-time customer)
       return true;
     }
 
-    const customer = customers.data[0];
-    const storedLiveMeId = customer.metadata?.liveMeId;
+    const storedLiveMeId = customer.liveMeId;
 
     // If no LiveMe ID stored yet, allow it
     if (!storedLiveMeId) return true;
