@@ -710,7 +710,7 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded text-xs ${
-                          order.status === 'paid' ? 'bg-green-600' : 'bg-yellow-600'
+                          (order.status === 'paid' || order.status === 'completed') ? 'bg-green-600' : 'bg-yellow-600'
                         }`}>
                           {order.status}
                         </span>
@@ -722,7 +722,7 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          {order.status === 'paid' && order.fulfillmentStatus !== 'fulfilled' && (
+                          {(order.status === 'paid' || order.status === 'completed') && order.fulfillmentStatus !== 'fulfilled' && (
                             <button
                               onClick={() => markAsFulfilled(order.id)}
                               className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
@@ -1477,7 +1477,7 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded text-xs ${
-                              order.status === 'paid' ? 'bg-green-600' : 'bg-yellow-600'
+                              (order.status === 'paid' || order.status === 'completed') ? 'bg-green-600' : 'bg-yellow-600'
                             }`}>
                               {order.status}
                             </span>

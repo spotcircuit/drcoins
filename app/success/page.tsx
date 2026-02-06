@@ -8,6 +8,7 @@ import Link from 'next/link';
 function SuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const orderId = searchParams.get('orderId');
   const amount = searchParams.get('amount');
   const coins = searchParams.get('coins');
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,7 @@ function SuccessContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionId) {
+    if (typeof window !== 'undefined' && (sessionId || orderId)) {
       // Randomly select a video
       const videos = [
         '/Coins_Dropped_Slot_Machine_Sound.mp4',
@@ -51,7 +52,7 @@ function SuccessContent() {
       
       setLoading(false);
     }
-  }, [sessionId, amount, coins]);
+  }, [sessionId, orderId, amount, coins]);
 
   useEffect(() => {
     if (videoRef.current && videoSrc) {
@@ -147,11 +148,11 @@ function SuccessContent() {
           Your Dr. Coins are being delivered to your LiveMe account!
         </p>
         
-        {sessionId && (
+        {(sessionId || orderId) && (
           <div className="bg-purple-900/30 rounded-lg p-3 mb-6">
             <p className="text-white/70 text-xs mb-1">Order ID:</p>
             <p className="text-white/90 text-sm font-mono">
-              {sessionId.slice(0, 30)}...
+              {(orderId || sessionId)?.slice(0, 30)}...
             </p>
           </div>
         )}
