@@ -1,46 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { checkoutConfig, getBillingAddressConfig } from '@/lib/checkout-config';
+import { getHostedPaymentPageRequest, getHostedPaymentPage } from '@/lib/authorizenet';
 import { getRateForEmail } from '@/lib/pricing-rates';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   return NextResponse.json({
     status: 'Checkout API is running',
-    stripeConfigured: !!stripe,
-    hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-    hasPublishableKey: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    authNetConfigured: !!(process.env.AUTHORIZENET_API_LOGIN_ID && process.env.AUTHORIZENET_TRANSACTION_KEY),
+    databaseConfigured: !!process.env.DATABASE_URL,
   });
 }
 
 export async function POST(req: NextRequest) {
   console.log('Checkout API called');
-  
-  // Check if Stripe is initialized
-  if (!stripe) {
-    console.error('Stripe not initialized - check STRIPE_SECRET_KEY');
-    return NextResponse.json(
-      { error: 'Payment system not configured' },
-      { status: 500 }
-    );
-  }
-  
+
   try {
-    let items, liveMeId, email, firstName, lastName, phone;
-    try {
-      const body = await req.json();
-      items = body.items;
-      liveMeId = body.liveMeId;
-      email = body.email;
-      firstName = body.firstName;
-      lastName = body.lastName;
-      phone = body.phone;
-    } catch (e) {
-      console.error('Failed to parse request body:', e);
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
+    const body = await req.json();
+    const { items, liveMeId, email, firstName, lastName, phone } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -49,102 +25,150 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create or update customer in Stripe
-    let customer;
-    if (email) {
-      // Check if customer exists
-      const existingCustomers = await stripe.customers.list({
-        email: email,
-        limit: 1
-      });
-
-      if (existingCustomers.data.length > 0) {
-        // Update existing customer
-        customer = await stripe.customers.update(existingCustomers.data[0].id, {
-          name: firstName && lastName ? `${firstName} ${lastName}` : undefined,
-          phone: phone || undefined,
-          metadata: {
-            firstName: firstName || '',
-            lastName: lastName || '',
-            liveMeId: liveMeId || '',
-            lastOrderDate: new Date().toISOString()
-          }
-        });
-      } else {
-        // Create new customer
-        customer = await stripe.customers.create({
-          email: email,
-          name: firstName && lastName ? `${firstName} ${lastName}` : undefined,
-          phone: phone || undefined,
-          metadata: {
-            firstName: firstName || '',
-            lastName: lastName || '',
-            liveMeId: liveMeId || '',
-            password: '', // Will be set when they create account
-            createdDate: new Date().toISOString()
-          }
-        });
-      }
+    if (!email || !liveMeId) {
+      return NextResponse.json(
+        { error: 'Email and LiveMe ID are required' },
+        { status: 400 }
+      );
     }
 
-    // Get the applied rate for this customer
-    let appliedRate = 87; // default rate
+    // Get or create customer in database
+    let customer = await prisma.customer.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    if (!customer) {
+      customer = await prisma.customer.create({
+        data: {
+          email: email.toLowerCase(),
+          firstName: firstName || null,
+          lastName: lastName || null,
+          phone: phone || null,
+          liveMeId: liveMeId || null,
+        }
+      });
+    } else {
+      // Update existing customer
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          firstName: firstName || customer.firstName,
+          lastName: lastName || customer.lastName,
+          phone: phone || customer.phone,
+          liveMeId: liveMeId || customer.liveMeId,
+        }
+      });
+    }
+
+    // Get applied rate from Vercel Blob
+    let appliedRate = 87;
     try {
       appliedRate = await getRateForEmail(email);
     } catch (err) {
       console.error('Failed to get rate for email, using default:', err);
     }
 
-    // Build session configuration
-    const sessionConfig: any = {
-      payment_method_types: checkoutConfig.paymentMethods,
-      line_items: items.map(item => ({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: item.name,
-            description: liveMeId
-              ? `Instant delivery to LiveMe ID: ${liveMeId}`
-              : (item.description || 'Instant delivery to your LiveMe account'),
-          },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.quantity || 1,
-      })),
-      mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/`,
-      metadata: {
-        orderId: Date.now().toString(),
-        liveMeId: liveMeId || 'Not provided',
-        appliedRate: appliedRate.toString(),
-        items: JSON.stringify(items.map(i => ({
-          name: i.name,
-          price: i.price,
-          quantity: i.quantity || 1,
-          amount: i.amount, // Include coin amount for proper display
-          description: liveMeId
-            ? `Instant delivery to LiveMe ID: ${liveMeId}`
-            : 'Instant delivery to your LiveMe account'
-        }))),
-      },
-      ...(customer?.id ? { customer: customer.id } : { customer_email: email, customer_creation: 'always' }),
-      billing_address_collection: getBillingAddressConfig(),
-      phone_number_collection: {
-        enabled: checkoutConfig.collectPhoneNumber,
-      },
-    };
+    // Calculate total amount
+    const totalAmount = items.reduce((sum: number, item: any) =>
+      sum + (item.price * (item.quantity || 1)), 0
+    );
 
-    // Add payment method configuration if specified
-    if (checkoutConfig.paymentMethodConfigurationId) {
-      sessionConfig.payment_method_configuration = checkoutConfig.paymentMethodConfigurationId;
+    // Create order in database (PENDING status)
+    const orderId = Date.now().toString();
+    const order = await prisma.order.create({
+      data: {
+        orderId,
+        customerId: customer.id,
+        amount: totalAmount,
+        currency: 'USD',
+        status: 'PENDING',
+        liveMeId,
+        appliedRate,
+        items: {
+          create: items.map((item: any) => ({
+            name: item.name,
+            description: item.description || `Instant delivery to LiveMe ID: ${liveMeId}`,
+            price: item.price,
+            quantity: item.quantity || 1,
+            amount: item.amount || null,
+            type: item.type || 'coins'
+          }))
+        }
+      },
+      include: {
+        items: true
+      }
+    });
+
+    console.log('Order created in database:', order.orderId);
+
+    // Create Authorize.Net hosted payment page
+    const paymentRequest = getHostedPaymentPageRequest({
+      orderId: order.orderId,
+      amount: totalAmount,
+      items: items.map((item: any) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity || 1
+      })),
+      liveMeId,
+      email,
+      firstName,
+      lastName
+    });
+
+    const { token, error } = await getHostedPaymentPage(paymentRequest);
+
+    if (error) {
+      // Update order status to FAILED
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: 'FAILED' }
+      });
+
+      return NextResponse.json(
+        { error: `Payment page creation failed: ${error}` },
+        { status: 500 }
+      );
     }
 
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Return token and payment page URL
+    // Authorize.Net hosted payment page URLs:
+    // Production: https://accept.authorize.net/payment/payment
+    // Sandbox: https://test.authorize.net/payment/payment
+    // 
+    // IMPORTANT: Make sure AUTHORIZENET_ENV matches your API credentials
+    // - If using sandbox/test credentials, set AUTHORIZENET_ENV=sandbox (or leave unset)
+    // - If using production credentials, set AUTHORIZENET_ENV=production
+    // 
+    // If you get a 404 error, try switching the environment:
+    // - If you have sandbox credentials, change AUTHORIZENET_ENV to 'sandbox' or remove it
+    // - If you have production credentials, make sure AUTHORIZENET_ENV is set to 'production'
+    // Determine environment - default to sandbox if not explicitly set to production
+    const isProd = process.env.AUTHORIZENET_ENV === 'production';
+    // Authorize.Net hosted payment page URLs
+    // Note: If you get a 404, try the opposite environment URL
+    const paymentPageUrl = isProd
+      ? `https://accept.authorize.net/payment/payment`
+      : `https://test.authorize.net/payment/payment`;
 
-    return NextResponse.json({ sessionId: session.id, url: session.url });
+    console.log('Payment page created successfully');
+    console.log('AUTHORIZENET_ENV:', process.env.AUTHORIZENET_ENV || 'not set (defaulting to sandbox)');
+    console.log('Using environment:', isProd ? 'PRODUCTION' : 'SANDBOX');
+    console.log('Payment page URL:', paymentPageUrl);
+    console.log('⚠️  If you get a 404, verify your credentials match the environment above');
+
+    // According to Authorize.Net documentation, the token must be sent via HTML POST
+    // Return the base URL and token separately so frontend can create a POST form
+    return NextResponse.json({
+      token,
+      paymentPageUrl, // Base URL without token
+      orderId: order.orderId,
+      environment: isProd ? 'production' : 'sandbox'
+    });
+
   } catch (error: any) {
-    console.error('Stripe checkout error:', error);
+    console.error('Checkout error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

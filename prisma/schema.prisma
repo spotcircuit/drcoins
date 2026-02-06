@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Customer table - replaces Stripe customers
+model Customer {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  firstName String?
+  lastName  String?
+  phone     String?
+  liveMeId  String?
+
+  // Authorize.Net customer profile ID
+  authNetCustomerProfileId String?
+  authNetPaymentProfileId  String?
+
+  // Metadata
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastOrderDate DateTime?
+
+  // Relations
+  orders Order[]
+
+  @@index([email])
+  @@index([liveMeId])
+}
+
+// Order table - replaces Stripe checkout sessions
+model Order {
+  id      String @id @default(cuid())
+  orderId String @unique // Human-readable order ID (timestamp-based)
+
+  // Customer info
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Payment info
+  amount        Decimal     @db.Decimal(10, 2)
+  currency      String      @default("USD")
+  status        OrderStatus @default(PENDING)
+  paymentMethod String? // "Card", "eCheck", etc.
+
+  // Authorize.Net transaction details
+  authNetTransactionId String? @unique
+  authNetResponseCode  String?
+  authNetAuthCode      String?
+
+  // Order details
+  liveMeId    String
+  appliedRate Decimal @default(87) @db.Decimal(10, 2)
+
+  // Fulfillment
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  fulfilledAt       DateTime?
+  fulfilledBy       String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items OrderItem[]
+
+  @@index([customerId])
+  @@index([orderId])
+  @@index([authNetTransactionId])
+  @@index([status])
+  @@index([fulfillmentStatus])
+  @@index([createdAt])
+}
+
+// Order items - individual products in an order
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  price       Decimal @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+  amount      Int? // Coin/points amount
+  type        String  @default("coins") // "coins" or "points"
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// Email logs for tracking sent emails
+model EmailLog {
+  id       String    @id @default(cuid())
+  orderId  String?
+  email    String
+  type     EmailType
+  subject  String
+  sentAt   DateTime  @default(now())
+  success  Boolean   @default(true)
+  error    String?
+  resendId String?
+
+  @@index([orderId])
+  @@index([email])
+  @@index([type])
+  @@index([sentAt])
+}
+
+// Enums
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  FULFILLED
+  FAILED
+}
+
+enum EmailType {
+  PAYMENT_SUCCESS
+  FULFILLMENT
+  ADMIN_NOTIFICATION
+}

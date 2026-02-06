@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCart } from '@/contexts/CartContext';
-import StripeCheckoutButton from './StripeCheckoutButton';
+import AuthorizeNetCheckoutButton from './AuthorizeNetCheckoutButton';
 
 export default function CartDrawer() {
   const { items, removeFromCart, updateQuantity, getTotalPrice, isOpen, setIsOpen, clearCart } = useCart();
@@ -299,16 +299,14 @@ export default function CartDrawer() {
                   </div>
                 )}
 
-                <StripeCheckoutButton
+                <AuthorizeNetCheckoutButton
                   items={items.map(item => ({
                     name: item.name,
                     description: item.description,
                     price: appliedRate && appliedRate !== 87 ? getAdjustedPrice(item) : item.price,
                     quantity: item.quantity,
-                    images: item.image,
-                    metadata: {
-                      liveMeId: liveMeId.trim()
-                    }
+                    amount: item.amount,
+                    type: item.type
                   }))}
                   buttonText="Proceed to Checkout"
                   className="w-full"

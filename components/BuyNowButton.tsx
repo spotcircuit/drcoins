@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
 import LiveMeIdModal from './LiveMeIdModal';
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 interface BuyNowButtonProps {
   item: {
@@ -12,13 +9,15 @@ interface BuyNowButtonProps {
     description?: string;
     price: number;
     quantity?: number;
+    amount?: number;
+    type?: string;
   };
   className?: string;
   buttonText?: string;
 }
 
-export default function BuyNowButton({ 
-  item, 
+export default function BuyNowButton({
+  item,
   className = '',
   buttonText = 'Buy Now'
 }: BuyNowButtonProps) {
@@ -46,7 +45,9 @@ export default function BuyNowButton({
             name: item.name,
             description: item.description,
             price: item.price,
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            amount: item.amount,
+            type: item.type || 'coins'
           }],
           liveMeId: liveMeId,
           email: email
@@ -59,18 +60,17 @@ export default function BuyNowButton({
         throw new Error(data.error || 'Something went wrong');
       }
 
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error('Stripe failed to load');
-      }
-
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId,
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
-      }
+      // Redirect to custom Accept.js checkout page
+      const items = [{
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity || 1,
+        amount: item.amount,
+        type: item.type || 'coins'
+      }];
+      const itemsParam = encodeURIComponent(JSON.stringify(items));
+      window.location.href = `/checkout?items=${itemsParam}&liveMeId=${encodeURIComponent(liveMeId)}&email=${encodeURIComponent(email)}`;
     } catch (err: any) {
       setError(err.message);
       console.error('Checkout error:', err);
@@ -88,7 +88,7 @@ export default function BuyNowButton({
       >
         {loading ? 'Processing...' : buttonText}
       </button>
-      
+
       <LiveMeIdModal
         isOpen={showLiveMeModal}
         onCloseAction={() => {
@@ -101,7 +101,7 @@ export default function BuyNowButton({
         }}
         initialValue=""
       />
-      
+
       {error && (
         <p className="mt-2 text-red-500 text-sm">{error}</p>
       )}
