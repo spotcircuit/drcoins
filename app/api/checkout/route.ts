@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { items, liveMeId, email, firstName, lastName, phone } = body;
+    const { items, liveMeId, email, firstName, lastName, phone, address, city, state, zip, country } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -37,26 +37,37 @@ export async function POST(req: NextRequest) {
       where: { email: email.toLowerCase() }
     });
 
+    type CustomerWithAddress = typeof customer & { address?: string | null; city?: string | null; state?: string | null; zip?: string | null; country?: string | null };
+    const existing = customer as CustomerWithAddress | null;
+
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
           email: email.toLowerCase(),
-          firstName: firstName || null,
-          lastName: lastName || null,
-          phone: phone || null,
-          liveMeId: liveMeId || null,
-        }
+          firstName: firstName ?? null,
+          lastName: lastName ?? null,
+          phone: phone ?? null,
+          liveMeId: liveMeId ?? null,
+          ...(address != null || city != null || state != null || zip != null || country != null
+            ? { address: address ?? null, city: city ?? null, state: state ?? null, zip: zip ?? null, country: country ?? null }
+            : {}),
+        } as Parameters<typeof prisma.customer.create>[0]['data'],
       });
     } else {
-      // Update existing customer
+      // Update existing customer with new info when provided (user may have changed address/phone/name)
       customer = await prisma.customer.update({
         where: { id: customer.id },
         data: {
-          firstName: firstName || customer.firstName,
-          lastName: lastName || customer.lastName,
-          phone: phone || customer.phone,
-          liveMeId: liveMeId || customer.liveMeId,
-        }
+          firstName: firstName ?? customer.firstName,
+          lastName: lastName ?? customer.lastName,
+          phone: phone ?? customer.phone,
+          liveMeId: liveMeId ?? customer.liveMeId,
+          address: address ?? existing?.address ?? undefined,
+          city: city ?? existing?.city ?? undefined,
+          state: state ?? existing?.state ?? undefined,
+          zip: zip ?? existing?.zip ?? undefined,
+          country: country ?? existing?.country ?? undefined,
+        } as Parameters<typeof prisma.customer.update>[0]['data'],
       });
     }
 

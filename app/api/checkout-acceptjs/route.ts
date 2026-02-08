@@ -11,18 +11,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { items, liveMeId, email, firstName, lastName, opaqueData, billingAddress } = body;
+    const { orderId, items, liveMeId, email, firstName, lastName, opaqueData, billingAddress } = body;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: 'No items provided' },
-        { status: 400 }
-      );
-    }
-
-    if (!email || !liveMeId) {
-      return NextResponse.json(
-        { error: 'Email and LiveMe ID are required' },
+        { error: 'Order ID is required' },
         { status: 400 }
       );
     }
@@ -34,86 +27,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get or create customer in database
-    let customer = await prisma.customer.findUnique({
-      where: { email: email.toLowerCase() }
+    // Find order by orderId
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: { customer: true, items: true }
     });
 
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          email: email.toLowerCase(),
-          firstName: firstName || null,
-          lastName: lastName || null,
-          liveMeId: liveMeId || null,
-        }
-      });
-    } else {
-      // Update existing customer
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          firstName: firstName || customer.firstName,
-          lastName: lastName || customer.lastName,
-          liveMeId: liveMeId || customer.liveMeId,
-        }
-      });
+    if (!order) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
     }
 
-    // Get applied rate from Vercel Blob
-    let appliedRate = 87;
-    try {
-      appliedRate = await getRateForEmail(email);
-    } catch (err) {
-      console.error('Failed to get rate for email, using default:', err);
+    // Check OTP verification
+    if (!(order as any).otpVerified) {
+      return NextResponse.json(
+        { error: 'Order not verified. Please complete OTP verification first.' },
+        { status: 403 }
+      );
     }
 
-    // Calculate total amount
-    const totalAmount = items.reduce((sum: number, item: any) =>
-      sum + (item.price * (item.quantity || 1)), 0
-    );
+    // Use customer from order
+    const customer = order.customer;
 
-    // Create order in database (PENDING status)
-    const orderId = Date.now().toString();
-    const order = await prisma.order.create({
-      data: {
-        orderId,
-        customerId: customer.id,
-        amount: totalAmount,
-        currency: 'USD',
-        status: 'PENDING',
-        liveMeId,
-        appliedRate,
-        items: {
-          create: items.map((item: any) => ({
-            name: item.name,
-            description: item.description || `Instant delivery to LiveMe ID: ${liveMeId}`,
-            price: item.price,
-            quantity: item.quantity || 1,
-            amount: item.amount || null,
-            type: item.type || 'coins'
-          }))
-        }
-      },
-      include: {
-        items: true
-      }
-    });
+    // Calculate total amount from order
+    const totalAmount = order.amount.toNumber();
 
     // Process payment with Accept.js opaque data
     try {
       const transactionResult = await createTransactionRequest({
         amount: totalAmount,
         orderId: order.orderId,
-        items: items.map((item: any) => ({
+        items: order.items.map((item) => ({
           name: item.name,
-          price: item.price,
-          quantity: item.quantity || 1
+          price: item.price.toNumber(),
+          quantity: item.quantity
         })),
-        liveMeId,
-        email,
-        firstName,
-        lastName,
+        liveMeId: order.liveMeId,
+        email: customer.email,
+        firstName: customer.firstName || undefined,
+        lastName: customer.lastName || undefined,
         opaqueData,
         billingAddress
       });

@@ -51,6 +51,18 @@ export default function AcceptJsCheckout({
   const [billingCountry, setBillingCountry] = useState('USA');
   const acceptJsLoaded = useRef(false);
 
+  // Contact info (editable; if user has existing data we could prefill via props later)
+  const [formFirstName, setFormFirstName] = useState(firstName ?? '');
+  const [formLastName, setFormLastName] = useState(lastName ?? '');
+  const [phone, setPhone] = useState('');
+  
+  // OTP verification state
+  const [showOTPStep, setShowOTPStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [otpSent, setOtpSent] = useState(false);
+
   // Calculate total
   const totalAmount = items.reduce((sum, item) => 
     sum + (item.price * (item.quantity || 1)), 0
@@ -94,17 +106,126 @@ export default function AcceptJsCheckout({
     };
   }, []);
 
+  // Handle initial form submission - create order and request OTP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    // Validate form
+    // Validate form: contact info, payment, and billing address
+    if (!formFirstName?.trim() || !formLastName?.trim()) {
+      setError('Please enter your first and last name');
+      setLoading(false);
+      return;
+    }
+    if (!phone?.trim()) {
+      setError('Please enter your phone number');
+      setLoading(false);
+      return;
+    }
+    if (!billingAddress?.trim() || !billingCity?.trim() || !billingState?.trim() || !billingZip?.trim()) {
+      setError('Please fill in your full billing address');
+      setLoading(false);
+      return;
+    }
     if (!cardNumber || !expMonth || !expYear || !cardCode) {
       setError('Please fill in all payment fields');
       setLoading(false);
       return;
     }
+
+    try {
+      // Step 1: Create order first (saves/updates customer with contact + address)
+      const orderResponse = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          liveMeId,
+          email,
+          firstName: formFirstName.trim(),
+          lastName: formLastName.trim(),
+          phone: phone.trim(),
+          address: billingAddress.trim(),
+          city: billingCity.trim(),
+          state: billingState.trim(),
+          zip: billingZip.trim(),
+          country: billingCountry.trim()
+        })
+      });
+
+      const orderData = await orderResponse.json();
+      if (!orderResponse.ok) {
+        throw new Error(orderData.error || 'Failed to create order');
+      }
+
+      setOrderId(orderData.orderId);
+
+      // Step 2: Generate and send OTP
+      setOtpLoading(true);
+      const otpResponse = await fetch('/api/checkout/generate-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderData.orderId,
+          email
+        })
+      });
+
+      const otpData = await otpResponse.json();
+      if (!otpResponse.ok) {
+        throw new Error(otpData.error || 'Failed to send verification code');
+      }
+
+      // Show OTP input step
+      setShowOTPStep(true);
+      setOtpSent(true);
+      setOtpLoading(false);
+      setLoading(false);
+
+    } catch (err: any) {
+      setError(err.message);
+      setOtpLoading(false);
+      setLoading(false);
+    }
+  };
+
+  // Handle OTP verification and payment processing
+  const handleOTPVerify = async () => {
+    if (!orderId) return;
+
+    setOtpLoading(true);
+    setError(null);
+
+    try {
+      // Step 1: Verify OTP
+      const verifyResponse = await fetch('/api/checkout/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          otp: otpCode
+        })
+      });
+
+      const verifyData = await verifyResponse.json();
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.error || 'Invalid verification code');
+      }
+
+      // OTP verified - now process payment
+      await processPayment();
+
+    } catch (err: any) {
+      setError(err.message);
+      setOtpLoading(false);
+    }
+  };
+
+  // Process payment after OTP verification
+  const processPayment = async () => {
+    setLoading(true);
+    setError(null);
 
     // Check if Accept.js is loaded and ready
     if (!window.Accept || typeof window.Accept.dispatchData !== 'function') {
@@ -205,11 +326,12 @@ export default function AcceptJsCheckout({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          orderId, // Include orderId so server can verify OTP
           items,
           liveMeId,
           email,
-          firstName,
-          lastName,
+          firstName: formFirstName,
+          lastName: formLastName,
           opaqueData: secureData,
           billingAddress: {
             address: billingAddress,
@@ -245,8 +367,140 @@ export default function AcceptJsCheckout({
     }
   };
 
+  // Show OTP verification step
+  if (showOTPStep) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-purple-900/30 border border-purple-700 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-semibold text-white mb-2">Verification Code Sent</h3>
+          <p className="text-gray-300 mb-4">
+            We've sent a 6-digit verification code to <strong>{email}</strong>
+          </p>
+          <p className="text-sm text-gray-400">
+            Please check your email and enter the code below to complete your purchase.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Enter Verification Code
+          </label>
+          <input
+            type="text"
+            value={otpCode}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '');
+              setOtpCode(value.substring(0, 6));
+            }}
+            placeholder="000000"
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest font-mono"
+            maxLength={6}
+            autoFocus
+          />
+        </div>
+
+        {error && (
+          <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleOTPVerify}
+            disabled={otpLoading || otpCode.length !== 6}
+            className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+          >
+            {otpLoading ? 'Verifying...' : 'Verify & Pay'}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!orderId) return;
+              setOtpLoading(true);
+              setError(null);
+              try {
+                const response = await fetch('/api/checkout/generate-otp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orderId, email })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                  throw new Error(data.error || 'Failed to resend code');
+                }
+                setOtpCode('');
+                setError(null);
+                alert('New verification code sent to your email!');
+              } catch (err: any) {
+                setError(err.message);
+              } finally {
+                setOtpLoading(false);
+              }
+            }}
+            disabled={otpLoading}
+            className="px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          >
+            Resend
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-400 text-center">
+          Didn't receive the code? Check your spam folder or click "Resend" above.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Your information */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white">Your Information</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              First Name
+            </label>
+            <input
+              type="text"
+              value={formFirstName}
+              onChange={(e) => setFormFirstName(e.target.value)}
+              placeholder="First name"
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Last Name
+            </label>
+            <input
+              type="text"
+              value={formLastName}
+              onChange={(e) => setFormLastName(e.target.value)}
+              placeholder="Last name"
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Phone number"
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            required
+          />
+        </div>
+      </div>
+
       {/* Payment Card Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Payment Information</h3>
@@ -440,10 +694,10 @@ export default function AcceptJsCheckout({
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={loading || !acceptJsLoaded.current}
+        disabled={loading || otpLoading || !acceptJsLoaded.current}
         className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
       >
-        {loading ? 'Processing Payment...' : `Pay $${totalAmount.toFixed(2)}`}
+        {loading || otpLoading ? 'Sending Verification Code...' : `Continue to Verification`}
       </button>
 
       {!acceptJsLoaded.current && (

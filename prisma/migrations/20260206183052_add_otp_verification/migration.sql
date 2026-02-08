@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN "otpCode" TEXT,
+ADD COLUMN "otpExpiresAt" TIMESTAMP(3),
+ADD COLUMN "otpVerified" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "otpAttempts" INTEGER NOT NULL DEFAULT 0;
