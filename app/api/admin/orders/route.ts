@@ -29,8 +29,7 @@ export async function GET(req: NextRequest) {
       },
       orderBy: {
         createdAt: 'desc'
-      },
-      take: 100
+      }
     });
 
     const formattedOrders = orders.map(order => ({

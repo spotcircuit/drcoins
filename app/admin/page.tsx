@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { emailConfig } from '@/lib/email-config';
 import { ThemeSelector } from '@/components/ThemeSelector';
@@ -21,9 +21,15 @@ export default function AdminPage() {
 
   // Orders state
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderFilterEmail, setOrderFilterEmail] = useState('');
+  const [orderFilterLiveMeId, setOrderFilterLiveMeId] = useState('');
 
   // Customers state
   const [customers, setCustomers] = useState<any[]>([]);
+  const [customerFilterEmail, setCustomerFilterEmail] = useState('');
+  const [customerFilterLiveMeId, setCustomerFilterLiveMeId] = useState('');
+  const [orderPage, setOrderPage] = useState(1);
+  const [customerPage, setCustomerPage] = useState(1);
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
   const [selectedCustomerDetail, setSelectedCustomerDetail] = useState<any | null>(null);
 
@@ -50,6 +56,63 @@ export default function AdminPage() {
   const [bulkRateExpiry, setBulkRateExpiry] = useState('');
   const [bulkRateNote, setBulkRateNote] = useState('');
   const [showRateHistory, setShowRateHistory] = useState(false);
+
+  // Filtered lists for Orders and Customers tabs
+  const filteredOrders = useMemo(() => {
+    const e = orderFilterEmail.trim().toLowerCase();
+    const l = orderFilterLiveMeId.trim().toLowerCase();
+    if (!e && !l) return orders;
+    return orders.filter((o: any) => {
+      const matchEmail = !e || (o.customerEmail || '').toLowerCase().includes(e);
+      const matchLiveMe = !l || (o.liveMeId || '').toLowerCase().includes(l);
+      return matchEmail && matchLiveMe;
+    });
+  }, [orders, orderFilterEmail, orderFilterLiveMeId]);
+
+  const filteredCustomers = useMemo(() => {
+    const e = customerFilterEmail.trim().toLowerCase();
+    const l = customerFilterLiveMeId.trim().toLowerCase();
+    if (!e && !l) return customers;
+    return customers.filter((c: any) => {
+      const matchEmail = !e || (c.email || '').toLowerCase().includes(e);
+      const matchLiveMe = !l || (c.liveMeId || '').toLowerCase().includes(l);
+      return matchEmail && matchLiveMe;
+    });
+  }, [customers, customerFilterEmail, customerFilterLiveMeId]);
+
+  const ORDER_PAGE_SIZE = 20;
+  const CUSTOMER_PAGE_SIZE = 20;
+
+  const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDER_PAGE_SIZE));
+  const totalCustomerPages = Math.max(1, Math.ceil(filteredCustomers.length / CUSTOMER_PAGE_SIZE));
+
+  const paginatedOrders = useMemo(() => {
+    const start = (orderPage - 1) * ORDER_PAGE_SIZE;
+    return filteredOrders.slice(start, start + ORDER_PAGE_SIZE);
+  }, [filteredOrders, orderPage]);
+
+  const paginatedCustomers = useMemo(() => {
+    const start = (customerPage - 1) * CUSTOMER_PAGE_SIZE;
+    return filteredCustomers.slice(start, start + CUSTOMER_PAGE_SIZE);
+  }, [filteredCustomers, customerPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setOrderPage(1);
+  }, [orderFilterEmail, orderFilterLiveMeId]);
+
+  useEffect(() => {
+    setCustomerPage(1);
+  }, [customerFilterEmail, customerFilterLiveMeId]);
+
+  // Clamp page when filtered list shrinks (e.g. after filter or refresh)
+  useEffect(() => {
+    if (orderPage > totalOrderPages) setOrderPage(totalOrderPages);
+  }, [orderPage, totalOrderPages]);
+
+  useEffect(() => {
+    if (customerPage > totalCustomerPages) setCustomerPage(totalCustomerPages);
+  }, [customerPage, totalCustomerPages]);
 
   const loginWithPassword = async (pwd: string) => {
     setLoading(true);
@@ -304,7 +367,7 @@ export default function AdminPage() {
     }
   };
 
-  const markAsFulfilled = async (sessionId: string, sendEmail: boolean = true) => {
+  const markAsFulfilled = async (orderId: string, sendEmail: boolean = true) => {
     try {
       const res = await fetch('/api/admin/orders', {
         method: 'POST',
@@ -313,7 +376,7 @@ export default function AdminPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          sessionId,
+          orderId,
           status: 'fulfilled',
           sendEmail
         })
@@ -342,8 +405,7 @@ export default function AdminPage() {
   };
 
   const selectAllCustomers = () => {
-    const allEmails = new Set(customers.map(c => c.email));
-    setSelectedCustomers(allEmails);
+    setSelectedCustomers(new Set(filteredCustomers.map((c: any) => c.email)));
   };
 
   const deselectAllCustomers = () => {
@@ -637,6 +699,60 @@ export default function AdminPage() {
         {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="text-gray-300 font-medium">Filter:</span>
+                <input
+                  type="text"
+                  placeholder="Email"
+                  value={orderFilterEmail}
+                  onChange={(e) => setOrderFilterEmail(e.target.value)}
+                  className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[180px]"
+                />
+                <input
+                  type="text"
+                  placeholder="LiveMe ID"
+                  value={orderFilterLiveMeId}
+                  onChange={(e) => setOrderFilterLiveMeId(e.target.value)}
+                  className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[140px]"
+                />
+                {(orderFilterEmail || orderFilterLiveMeId) && (
+                  <button
+                    type="button"
+                    onClick={() => { setOrderFilterEmail(''); setOrderFilterLiveMeId(''); }}
+                    className="text-gray-400 hover:text-white text-sm"
+                  >
+                    Clear filters
+                  </button>
+                )}
+                <span className="text-gray-500 text-sm">
+                  Showing {filteredOrders.length} of {orders.length} orders
+                </span>
+              </div>
+              {filteredOrders.length > ORDER_PAGE_SIZE && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
+                    disabled={orderPage <= 1}
+                    className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-300 text-sm px-2">
+                    Page {orderPage} of {totalOrderPages} ({((orderPage - 1) * ORDER_PAGE_SIZE) + 1}–{Math.min(orderPage * ORDER_PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOrderPage((p) => Math.min(totalOrderPages, p + 1))}
+                    disabled={orderPage >= totalOrderPages}
+                    className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-white">
                 <thead className="bg-gray-700">
@@ -653,7 +769,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {orders.map((order) => (
+                  {paginatedOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-gray-700">
                       <td className="px-4 py-3">
                         {new Date(order.created).toLocaleDateString()}
@@ -724,7 +840,7 @@ export default function AdminPage() {
                         <div className="flex gap-2">
                           {(order.status === 'paid' || order.status === 'completed') && order.fulfillmentStatus !== 'fulfilled' && (
                             <button
-                              onClick={() => markAsFulfilled(order.id)}
+                              onClick={() => markAsFulfilled(order.orderId)}
                               className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
                             >
                               Mark Fulfilled
@@ -732,7 +848,7 @@ export default function AdminPage() {
                           )}
                           {order.fulfillmentStatus === 'fulfilled' && (
                             <button
-                              onClick={() => markAsFulfilled(order.id, true)}
+                              onClick={() => markAsFulfilled(order.orderId, true)}
                               className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                               title="Resend fulfillment email"
                             >
@@ -746,6 +862,34 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+            {filteredOrders.length > ORDER_PAGE_SIZE && (
+              <div className="p-4 border-t border-gray-700 flex flex-wrap items-center justify-between gap-4">
+                <span className="text-gray-400 text-sm">
+                  Page {orderPage} of {totalOrderPages} ({filteredOrders.length} orders)
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
+                    disabled={orderPage <= 1}
+                    className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-300 text-sm px-2">
+                    {((orderPage - 1) * ORDER_PAGE_SIZE) + 1}–{Math.min(orderPage * ORDER_PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOrderPage((p) => Math.min(totalOrderPages, p + 1))}
+                    disabled={orderPage >= totalOrderPages}
+                    className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -781,13 +925,65 @@ export default function AdminPage() {
             )}
 
             <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-              <div className="p-4 bg-gray-750 border-b border-gray-700">
-                <button
-                  onClick={selectAllCustomers}
-                  className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
-                >
-                  Select All Customers
-                </button>
+              <div className="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <span className="text-gray-300 font-medium">Filter:</span>
+                  <input
+                    type="text"
+                    placeholder="Email"
+                    value={customerFilterEmail}
+                    onChange={(e) => setCustomerFilterEmail(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[180px]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="LiveMe ID"
+                    value={customerFilterLiveMeId}
+                    onChange={(e) => setCustomerFilterLiveMeId(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[140px]"
+                  />
+                  {(customerFilterEmail || customerFilterLiveMeId) && (
+                    <button
+                      type="button"
+                      onClick={() => { setCustomerFilterEmail(''); setCustomerFilterLiveMeId(''); }}
+                      className="text-gray-400 hover:text-white text-sm"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                  <span className="text-gray-500 text-sm">
+                    Showing {filteredCustomers.length} of {customers.length} customers
+                  </span>
+                  <button
+                    onClick={selectAllCustomers}
+                    className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
+                  >
+                    Select All Customers
+                  </button>
+                </div>
+                {filteredCustomers.length > CUSTOMER_PAGE_SIZE && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPage((p) => Math.max(1, p - 1))}
+                      disabled={customerPage <= 1}
+                      className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-gray-300 text-sm px-2">
+                      Page {customerPage} of {totalCustomerPages} ({((customerPage - 1) * CUSTOMER_PAGE_SIZE) + 1}–{Math.min(customerPage * CUSTOMER_PAGE_SIZE, filteredCustomers.length)} of {filteredCustomers.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPage((p) => Math.min(totalCustomerPages, p + 1))}
+                      disabled={customerPage >= totalCustomerPages}
+                      className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-white">
@@ -796,7 +992,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-left w-12">
                         <input
                           type="checkbox"
-                          checked={customers.length > 0 && selectedCustomers.size === customers.length}
+                          checked={filteredCustomers.length > 0 && filteredCustomers.every((c: any) => selectedCustomers.has(c.email))}
                           onChange={(e) => {
                             if (e.target.checked) {
                               selectAllCustomers();
@@ -811,13 +1007,14 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-left">Email</th>
                       <th className="px-4 py-3 text-left">LiveMe ID</th>
                       <th className="px-4 py-3 text-left">Phone</th>
+                      <th className="px-4 py-3 text-left">Address</th>
                       <th className="px-4 py-3 text-left">Total Orders</th>
                       <th className="px-4 py-3 text-left">Total Spent</th>
                       <th className="px-4 py-3 text-left">Last Order</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {customers.map((customer) => (
+                    {paginatedCustomers.map((customer) => (
                       <tr
                         key={customer.email}
                         className={`hover:bg-gray-700 cursor-pointer ${
@@ -844,6 +1041,9 @@ export default function AdminPage() {
                         <td className="px-4 py-3" onClick={() => openCustomerDetail(customer)}>
                           {customer.phone || '-'}
                         </td>
+                        <td className="px-4 py-3 max-w-[180px] truncate" onClick={() => openCustomerDetail(customer)} title={[customer.address, customer.city, customer.state, customer.zip, customer.country].filter(Boolean).join(', ') || undefined}>
+                          {[customer.address, customer.city, customer.state].filter(Boolean).join(', ') || '-'}
+                        </td>
                         <td className="px-4 py-3" onClick={() => openCustomerDetail(customer)}>
                           {customer.totalOrders}
                         </td>
@@ -858,6 +1058,34 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              {filteredCustomers.length > CUSTOMER_PAGE_SIZE && (
+                <div className="p-4 border-t border-gray-700 flex flex-wrap items-center justify-between gap-4">
+                  <span className="text-gray-400 text-sm">
+                    Page {customerPage} of {totalCustomerPages} ({filteredCustomers.length} customers)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPage((p) => Math.max(1, p - 1))}
+                      disabled={customerPage <= 1}
+                      className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-gray-300 text-sm px-2">
+                      {((customerPage - 1) * CUSTOMER_PAGE_SIZE) + 1}–{Math.min(customerPage * CUSTOMER_PAGE_SIZE, filteredCustomers.length)} of {filteredCustomers.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPage((p) => Math.min(totalCustomerPages, p + 1))}
+                      disabled={customerPage >= totalCustomerPages}
+                      className="px-3 py-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1360,9 +1588,17 @@ export default function AdminPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-white">{selectedCustomerDetail.name || 'Customer Details'}</h2>
                     <p className="text-gray-400">{selectedCustomerDetail.email}</p>
+                    {selectedCustomerDetail.phone && (
+                      <p className="text-gray-300 text-sm mt-1">Phone: {selectedCustomerDetail.phone}</p>
+                    )}
                     {selectedCustomerDetail.liveMeId && (
                       <p className="text-purple-400 font-mono text-sm mt-1">
                         LiveMe ID: {selectedCustomerDetail.liveMeId}
+                      </p>
+                    )}
+                    {(selectedCustomerDetail.address || selectedCustomerDetail.city) && (
+                      <p className="text-gray-300 text-sm mt-1">
+                        Address: {[selectedCustomerDetail.address, selectedCustomerDetail.city, selectedCustomerDetail.state, selectedCustomerDetail.zip, selectedCustomerDetail.country].filter(Boolean).join(', ') || '-'}
                       </p>
                     )}
                   </div>
