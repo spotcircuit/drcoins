@@ -661,6 +661,13 @@ export default function AcceptJsCheckout({
                 <option value="USA">United States</option>
                 <option value="CAN">Canada</option>
                 <option value="MEX">Mexico</option>
+                <option value="BRA">Brazil</option>
+                <option value="COL">Colombia</option>
+                <option value="JAM">Jamaica</option>
+                <option value="NGA">Nigeria</option>
+                <option value="PRI">Puerto Rico</option>
+                <option value="GBR">United Kingdom</option>
+                <option value="VEN">Venezuela</option>
               </select>
             </div>
           </div>
