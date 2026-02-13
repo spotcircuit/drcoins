@@ -292,16 +292,31 @@ export async function POST(req: NextRequest) {
       }
 
     } catch (paymentError: any) {
-      console.error('Payment processing error:', paymentError);
-      
+      // Log full error for debugging; responseCode 2 = Declined (see https://developer.authorize.net/api/reference/responseCodes.html)
+      console.error('Payment processing error:', {
+        error: paymentError.error,
+        message: paymentError.message,
+        responseCode: paymentError.responseCode,
+        full: paymentError
+      });
+
       // Update order status to FAILED
       await prisma.order.update({
         where: { id: order.id },
         data: { status: 'FAILED' }
       });
 
+      // Response code 2 = transaction declined by card issuer (general decline)
+      const isDeclined = paymentError.responseCode === '2';
+      const rawMessage = paymentError.error || paymentError.message;
+      const userMessage = isDeclined
+        ? (rawMessage && rawMessage !== 'Transaction declined'
+            ? `${rawMessage} Please try a different card or contact your bank.`
+            : 'Your card was declined. Please try a different payment method or contact your bank.')
+        : (rawMessage || 'Payment processing failed');
+
       return NextResponse.json(
-        { error: paymentError.error || paymentError.message || 'Payment processing failed' },
+        { error: userMessage },
         { status: 400 }
       );
     }
