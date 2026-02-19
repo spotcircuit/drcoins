@@ -3,8 +3,11 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AcceptJsCheckout from '@/components/AcceptJsCheckout';
+import ForumPayCheckout from '@/components/ForumPayCheckout';
 import LiveMeIdModal from '@/components/LiveMeIdModal';
 import { useCart } from '@/contexts/CartContext';
+
+type PaymentMethod = 'card' | 'crypto';
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
@@ -14,6 +17,7 @@ function CheckoutContent() {
   const [email, setEmail] = useState('');
   const [showLiveMeModal, setShowLiveMeModal] = useState(false);
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
 
   useEffect(() => {
     // Get items from URL params (for direct checkout) or cart
@@ -93,17 +97,55 @@ function CheckoutContent() {
     <div className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-purple-950">
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <h1 className="text-3xl font-bold text-white mb-8">Checkout</h1>
+
+        {/* Payment method selector */}
+        <div className="flex rounded-xl bg-gray-900/80 border border-gray-800 p-1 mb-6">
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('card')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+              paymentMethod === 'card'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            💳 Pay with Card
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('crypto')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+              paymentMethod === 'crypto'
+                ? 'bg-amber-600 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            ₿ Pay with Crypto
+          </button>
+        </div>
         
         <div className="bg-gray-900/50 rounded-2xl p-8 border border-gray-800">
-          <AcceptJsCheckout
-            items={checkoutItems}
-            liveMeId={liveMeId}
-            email={email}
-            onSuccess={handleSuccess}
-            onError={(error) => {
-              console.error('Checkout error:', error);
-            }}
-          />
+          {paymentMethod === 'card' ? (
+            <AcceptJsCheckout
+              items={checkoutItems}
+              liveMeId={liveMeId}
+              email={email}
+              onSuccess={handleSuccess}
+              onError={(error) => {
+                console.error('Checkout error:', error);
+              }}
+            />
+          ) : (
+            <ForumPayCheckout
+              items={checkoutItems}
+              liveMeId={liveMeId}
+              email={email}
+              onSuccess={handleSuccess}
+              onError={(error) => {
+                console.error('Crypto checkout error:', error);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
