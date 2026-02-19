@@ -4,7 +4,7 @@
  * PHP client reference: https://github.com/forumpay/payment-gateway-php-client
  */
 
-const FORUMPAY_BASE = process.env.FORUMPAY_API_BASE_URL || 'https://sandbox.dashboard.forumpay.com/pay';
+const FORUMPAY_BASE = process.env.FORUMPAY_API_BASE_URL || 'https://sandbox.api.forumpay.com/pay/v2';
 const FORUMPAY_USER = process.env.FORUMPAY_API_USER || '';
 const FORUMPAY_SECRET = process.env.FORUMPAY_API_SECRET || '';
 const POS_ID = process.env.FORUMPAY_POS_ID || 'web';
@@ -38,16 +38,34 @@ async function apiGet(action: string, params: Record<string, string | undefined>
   return data;
 }
 
+/** Build application/x-www-form-urlencoded body; v2 API expects form params, not JSON */
+function buildFormBody(params: Record<string, unknown>): string {
+  return Object.entries(params)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+}
+
+/** ForumPay rejects reserved IPs (0.0.0.0, localhost, private). Use a public fallback when needed. */
+function ensureNonReservedIp(ip: string | undefined): string {
+  const raw = (ip || '').trim();
+  if (!raw) return '8.8.8.8';
+  if (raw === '0.0.0.0' || raw === '::' || raw === '::1') return '8.8.8.8';
+  if (raw.startsWith('127.') || raw.startsWith('10.') || raw.startsWith('192.168.') || raw.startsWith('172.16.') || raw.startsWith('172.17.') || raw.startsWith('172.18.') || raw.startsWith('172.19.') || raw.startsWith('172.2') || raw.startsWith('172.30.') || raw.startsWith('172.31.')) return '8.8.8.8';
+  return raw;
+}
+
 async function apiPost(action: string, body: Record<string, unknown>): Promise<any> {
   const url = `${FORUMPAY_BASE.replace(/\/$/, '')}/${action}`;
+  const formBody = buildFormBody(body);
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: getAuthHeader(),
       Accept: 'application/json',
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify(body),
+    body: formBody,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -102,6 +120,7 @@ export async function startPayment(params: {
   referenceNo: string;
   payerEmail?: string;
   payerId?: string;
+  payerIpAddress?: string;
   webhookUrl?: string;
   onSuccessRedirectUrl?: string;
   onFailureRedirectUrl?: string;
@@ -124,21 +143,50 @@ export async function startPayment(params: {
     currency: params.currency,
     reference_no: params.referenceNo,
     accept_zero_confirmations: 'false',
-    payer_ip_address: null,
-    payer_email: params.payerEmail ?? null,
-    payer_id: params.payerId ?? null,
+    payer_ip_address: ensureNonReservedIp(params.payerIpAddress),
+    payer_email: params.payerEmail ?? '',
+    payer_id: params.payerId ?? '',
     auto_accept_underpayment: 'false',
     auto_accept_underpayment_min: '0',
     auto_accept_overpayment: 'false',
     auto_accept_late_payment: 'false',
-    sid: params.sid ?? null,
+    sid: params.sid ?? '',
   };
   if (params.webhookUrl) body.webhook_url = params.webhookUrl;
-  if (params.onSuccessRedirectUrl) body.on_success_redirect_url = params.onSuccessRedirectUrl;
-  if (params.onFailureRedirectUrl) body.on_failure_redirect_url = params.onFailureRedirectUrl;
-
-  // ForumPay PHP client uses PascalCase action + trailing slash: uri/StartPayment/
+  // redirect URLs not sent: on_success_redirect_url, on_failure_redirect_url
+  console.log("Forumpay webhook url=>>>>>>>>>>>>>>>>>", params.webhookUrl);
   const data = await apiPost('StartPayment/', body);
+  return data;
+}
+
+/** CheckPayment API response (snake_case); use confirmed, cancelled, state, status to determine order status */
+export type CheckPaymentResponse = {
+  reference_no?: string;
+  state?: string;
+  status?: string;
+  confirmed?: boolean;
+  cancelled?: boolean;
+  confirmed_time?: string;
+  cancelled_time?: string;
+  [k: string]: unknown;
+};
+
+/**
+ * Check payment status (used from webhook when payload has no status).
+ * Requires pos_id, currency, payment_id, address from webhook payload.
+ */
+export async function checkPayment(params: {
+  posId: string;
+  currency: string;
+  paymentId: string;
+  address: string;
+}): Promise<CheckPaymentResponse> {
+  const data = await apiGet('CheckPayment/', {
+    pos_id: params.posId,
+    currency: params.currency,
+    payment_id: params.paymentId,
+    address: params.address,
+  });
   return data;
 }
 

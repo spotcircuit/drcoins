@@ -67,47 +67,17 @@ export default function AuthorizeNetCheckoutButton({
       }
     }
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const cleanItems = items.map(({ ...item }) => ({
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        quantity: item.quantity || 1,
-        amount: item.amount,
-        type: item.type || 'coins'
-      }));
-
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: cleanItems,
-          liveMeId: effectiveId || null,
-          email: effectiveEmail || null
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
-      }
-
-      // Redirect to custom Accept.js checkout page
-      // Encode items for URL
-      const itemsParam = encodeURIComponent(JSON.stringify(cleanItems));
-      window.location.href = `/checkout?items=${itemsParam}&liveMeId=${encodeURIComponent(effectiveId)}&email=${encodeURIComponent(effectiveEmail)}`;
-    } catch (err: any) {
-      setError(err.message);
-      console.error('Checkout error:', err);
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to checkout; order is created only when user clicks OTP (card) or Pay with Crypto (crypto)
+    const cleanItems = items.map(({ ...item }) => ({
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      quantity: item.quantity || 1,
+      amount: item.amount,
+      type: item.type || 'coins'
+    }));
+    const itemsParam = encodeURIComponent(JSON.stringify(cleanItems));
+    window.location.href = `/checkout?items=${itemsParam}&liveMeId=${encodeURIComponent(effectiveId)}&email=${encodeURIComponent(effectiveEmail)}`;
   };
 
   return (

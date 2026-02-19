@@ -2,45 +2,82 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 import { getSenderEmail } from '@/lib/email-config';
+import { checkPayment } from '@/lib/forumpay';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * ForumPay webhook: called when a crypto payment is completed (or failed).
- * Configure this URL in ForumPay Dashboard: Notifications for Payments.
- * Payload structure: confirm with ForumPay docs; we expect reference_no (orderId) and status.
+ * ForumPay webhook: receives minimal payload (no status). We call CheckPayment API
+ * to get payment status, then update order. Payload: user, pos_id, address, currency, payment_id, reference_no.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // ForumPay may send reference_no (our orderId) or similar – adjust keys if docs differ
-    const orderId = body.reference_no ?? body.referenceNo ?? body.order_id ?? body.orderId ?? body.invoice_number;
-    const status = (body.status ?? body.state ?? body.payment_status ?? '').toString().toLowerCase();
+    const referenceNo = body.reference_no ?? body.referenceNo ?? body.order_id ?? body.orderId;
+    const paymentId = body.payment_id ?? body.paymentId ?? body.id;
+    const posId = body.pos_id ?? 'web';
+    const currency = body.currency ?? '';
+    const address = body.address ?? '';
 
-    if (!orderId) {
-      console.warn('ForumPay webhook: missing order reference', body);
+    if (!referenceNo && !paymentId) {
+      console.warn('ForumPay webhook: missing order reference and payment_id', body);
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const order = await prisma.order.findUnique({
-      where: { orderId: String(orderId) },
-      include: { customer: true, items: true }
-    });
+    // Find order by orderId (reference_no) or by ForumPay payment_id
+    let order = referenceNo
+      ? await prisma.order.findUnique({
+          where: { orderId: String(referenceNo) },
+          include: { customer: true, items: true }
+        })
+      : null;
+    if (!order && paymentId) {
+      const rows = await prisma.$queryRaw<[{ id: string }]>`
+        SELECT id FROM "Order" WHERE "forumpayPaymentId" = ${String(paymentId)} LIMIT 1
+      `;
+      const foundId = rows[0]?.id;
+      if (foundId) {
+        order = await prisma.order.findUnique({
+          where: { id: foundId },
+          include: { customer: true, items: true }
+        });
+      }
+    }
 
     if (!order) {
-      console.warn('ForumPay webhook: order not found', orderId);
+      console.warn('ForumPay webhook: order not found', { referenceNo, paymentId });
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    // Only update if still PENDING (idempotent)
     if (order.status !== 'PENDING') {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const isSuccess = status === 'completed' || status === 'paid' || status === 'confirmed' || status === 'success' || status === '1';
+    // Webhook payload has no status; get it from CheckPayment API
+    if (!currency || !address || !paymentId) {
+      console.warn('ForumPay webhook: missing currency/address/payment_id for CheckPayment', body);
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
 
-    if (isSuccess) {
+    let paymentStatus: { confirmed?: boolean; cancelled?: boolean; state?: string; status?: string };
+    try {
+      paymentStatus = await checkPayment({
+        posId: String(posId),
+        currency: String(currency),
+        paymentId: String(paymentId),
+        address: String(address),
+      });
+    } catch (e) {
+      console.error('ForumPay webhook: CheckPayment API error', e);
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    const confirmed = paymentStatus.confirmed === true;
+    const cancelled = paymentStatus.cancelled === true;
+    const state = (paymentStatus.state ?? '').toString().toLowerCase();
+
+    if (confirmed && !cancelled) {
       await prisma.order.update({
         where: { id: order.id },
         data: {
@@ -55,7 +92,6 @@ export async function POST(req: NextRequest) {
         data: { lastOrderDate: new Date() }
       });
 
-      // Optional: send confirmation email (same as card flow)
       if (order.customer?.email) {
         try {
           const totalCoins = order.items.reduce((sum, item) =>
@@ -81,12 +117,13 @@ export async function POST(req: NextRequest) {
           console.error('ForumPay webhook: failed to send customer email', e);
         }
       }
-    } else {
+    } else if (cancelled || state === 'cancelled' || state === 'failed') {
       await prisma.order.update({
         where: { id: order.id },
         data: { status: 'FAILED' }
       });
     }
+    // else: still waiting (e.g. state 'waiting') – leave order as PENDING
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {

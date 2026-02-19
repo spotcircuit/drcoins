@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface CheckoutItem {
   name: string;
@@ -21,12 +22,17 @@ interface ForumPayCheckoutProps {
   onError?: (error: string) => void;
 }
 
-const CRYPTO_OPTIONS = [
-  { value: 'BTC', label: 'Bitcoin (BTC)' },
-  { value: 'ETH', label: 'Ethereum (ETH)' },
-  { value: 'LTC', label: 'Litecoin (LTC)' },
-  { value: 'USDT', label: 'USDT' },
-  { value: 'USDC', label: 'USDC' },
+// Coin list with images (CoinGecko static assets)
+const CRYPTO_OPTIONS: { value: string; label: string; image: string }[] = [
+  { value: 'BTC', label: 'Bitcoin', image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png' },
+  { value: 'ETH', label: 'Ethereum', image: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
+  { value: 'USDT', label: 'USDT', image: 'https://assets.coingecko.com/coins/images/325/small/Tether.png' },
+  { value: 'XRP', label: 'XRP', image: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png' },
+  { value: 'BNB', label: 'BNB', image: 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png' },
+  { value: 'SOL', label: 'Solana', image: 'https://assets.coingecko.com/coins/images/4128/small/solana.png' },
+  { value: 'USDC', label: 'USDC', image: 'https://assets.coingecko.com/coins/images/6319/small/usdc.png' },
+  { value: 'TRX', label: 'TRON', image: 'https://assets.coingecko.com/coins/images/1094/small/tron-logo.png' },
+  { value: 'LTC', label: 'Litecoin', image: 'https://assets.coingecko.com/coins/images/2/small/litecoin.png' },
 ];
 
 export default function ForumPayCheckout({
@@ -44,6 +50,14 @@ export default function ForumPayCheckout({
   const [formLastName, setFormLastName] = useState(lastName ?? '');
   const [phone, setPhone] = useState('');
   const [cryptoCurrency, setCryptoCurrency] = useState('BTC');
+  const router = useRouter();
+
+  // OTP step (same as card flow)
+  const [showOTPStep, setShowOTPStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [otpSent, setOtpSent] = useState(false);
 
   const totalAmount = items.reduce((sum, item) =>
     sum + (item.price * (item.quantity || 1)), 0
@@ -91,7 +105,8 @@ export default function ForumPayCheckout({
     return () => { cancelled = true; };
   }, [cryptoCurrency, totalAmount]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Step 1: Create order and send OTP
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!formFirstName?.trim() || !formLastName?.trim()) {
@@ -105,10 +120,65 @@ export default function ForumPayCheckout({
 
     setLoading(true);
     try {
+      const orderRes = await fetch('/api/checkout-forumpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          liveMeId,
+          email,
+          firstName: formFirstName.trim(),
+          lastName: formLastName.trim(),
+          phone: phone.trim(),
+          cryptoCurrency,
+          createOnly: true,
+        })
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.error || 'Failed to create order');
+
+      setOrderId(orderData.orderId);
+
+      setOtpLoading(true);
+      const otpRes = await fetch('/api/checkout/generate-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: orderData.orderId, email })
+      });
+      const otpData = await otpRes.json();
+      if (!otpRes.ok) throw new Error(otpData.error || 'Failed to send verification code');
+
+      setShowOTPStep(true);
+      setOtpSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
+      onError?.(err.message);
+    } finally {
+      setLoading(false);
+      setOtpLoading(false);
+    }
+  };
+
+  // Step 2: Verify OTP and start crypto payment
+  const handleVerifyAndPay = async () => {
+    if (!orderId) return;
+    setError(null);
+    setOtpLoading(true);
+    try {
+      const verifyRes = await fetch('/api/checkout/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, otp: otpCode })
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData.error || 'Invalid verification code');
+
+      setLoading(true);
       const res = await fetch('/api/checkout-forumpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderId,
           items,
           liveMeId,
           email,
@@ -120,35 +190,31 @@ export default function ForumPayCheckout({
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to start crypto payment');
-      }
+      if (!res.ok) throw new Error(data.error || 'Failed to start crypto payment');
 
-      if (data.orderId && onSuccess) {
-        onSuccess(data.orderId);
-      }
+      if (data.orderId && onSuccess) onSuccess(data.orderId);
 
-      // Redirect to ForumPay hosted page to complete payment
       if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+        window.open(data.paymentUrl, '_blank', 'noopener,noreferrer');
+        router.push(`/checkout/crypto-pending?orderId=${encodeURIComponent(data.orderId)}`);
         return;
       }
-
       setError('No payment URL received. Please try again.');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
       onError?.(err.message);
     } finally {
       setLoading(false);
+      setOtpLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSendOtp} className="space-y-6">
       <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
         <span className="text-2xl">₿</span>
         <p className="text-amber-200 text-sm">
-          Pay with cryptocurrency. You will be redirected to a secure payment page to complete your purchase.
+          Pay with cryptocurrency. We&apos;ll send a verification code to your email before opening the payment page.
         </p>
       </div>
 
@@ -193,17 +259,27 @@ export default function ForumPayCheckout({
 
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white">Cryptocurrency</h3>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Select currency</label>
-          <select
-            value={cryptoCurrency}
-            onChange={(e) => setCryptoCurrency(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            {CRYPTO_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+        <p className="text-sm text-gray-400 mb-2">Select currency</p>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          {CRYPTO_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setCryptoCurrency(opt.value)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-colors ${
+                cryptoCurrency === opt.value
+                  ? 'bg-amber-500/20 border-amber-500 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600 hover:bg-gray-700/50'
+              }`}
+            >
+              <img
+                src={opt.image}
+                alt={opt.label}
+                className="w-8 h-8 rounded-full object-contain flex-shrink-0"
+              />
+              <span className="text-xs font-medium truncate w-full text-center">{opt.value}</span>
+            </button>
+          ))}
         </div>
         {rateLoading && (
           <p className="text-sm text-amber-200/80">Loading rate…</p>
@@ -252,23 +328,47 @@ export default function ForumPayCheckout({
         </div>
       </div>
 
+      {showOTPStep && (
+        <div className="space-y-4 rounded-lg bg-gray-800 border border-gray-600 p-4">
+          <h4 className="text-lg font-semibold text-white">Verification code</h4>
+          <p className="text-sm text-gray-300">
+            We sent a 6-digit code to <strong className="text-white">{email}</strong>. Enter it below.
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="000000"
+            value={otpCode}
+            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <button
+            type="button"
+            onClick={handleVerifyAndPay}
+            disabled={otpLoading || loading || otpCode.length !== 6}
+            className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {otpLoading || loading ? 'Verifying & opening payment...' : 'Verify and Pay with Crypto'}
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">
           {error}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          <>Redirecting to crypto payment...</>
-        ) : (
-          <>Pay with Crypto (${totalAmount.toFixed(2)} USD)</>
-        )}
-      </button>
+      {!showOTPStep && (
+        <button
+          type="submit"
+          disabled={loading || otpLoading}
+          className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          {loading || otpLoading ? 'Sending verification code...' : 'Send verification code'}
+        </button>
+      )}
     </form>
   );
 }
