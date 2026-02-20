@@ -30,53 +30,18 @@ export default function BuyNowButton({
     setShowLiveMeModal(true);
   };
 
-  const proceedWithCheckout = async (liveMeId: string, email: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: [{
-            name: item.name,
-            description: item.description,
-            price: item.price,
-            quantity: item.quantity || 1,
-            amount: item.amount,
-            type: item.type || 'coins'
-          }],
-          liveMeId: liveMeId,
-          email: email
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
-      }
-
-      // Redirect to custom Accept.js checkout page
-      const items = [{
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        quantity: item.quantity || 1,
-        amount: item.amount,
-        type: item.type || 'coins'
-      }];
-      const itemsParam = encodeURIComponent(JSON.stringify(items));
-      window.location.href = `/checkout?items=${itemsParam}&liveMeId=${encodeURIComponent(liveMeId)}&email=${encodeURIComponent(email)}`;
-    } catch (err: any) {
-      setError(err.message);
-      console.error('Checkout error:', err);
-    } finally {
-      setLoading(false);
-    }
+  const proceedWithCheckout = (liveMeId: string, email: string) => {
+    // Redirect to checkout; order is created only when user clicks OTP (card) or Pay with Crypto (crypto)
+    const items = [{
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      quantity: item.quantity || 1,
+      amount: item.amount,
+      type: item.type || 'coins'
+    }];
+    const itemsParam = encodeURIComponent(JSON.stringify(items));
+    window.location.href = `/checkout?items=${itemsParam}&liveMeId=${encodeURIComponent(liveMeId)}&email=${encodeURIComponent(email)}`;
   };
 
   return (

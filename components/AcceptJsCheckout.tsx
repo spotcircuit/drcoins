@@ -198,14 +198,10 @@ export default function AcceptJsCheckout({
     setError(null);
 
     try {
-      // Step 1: Verify OTP
       const verifyResponse = await fetch('/api/checkout/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          otp: otpCode
-        })
+        body: JSON.stringify({ orderId, otp: otpCode })
       });
 
       const verifyData = await verifyResponse.json();
@@ -213,11 +209,10 @@ export default function AcceptJsCheckout({
         throw new Error(verifyData.error || 'Invalid verification code');
       }
 
-      // OTP verified - now process payment
       await processPayment();
-
     } catch (err: any) {
       setError(err.message);
+    } finally {
       setOtpLoading(false);
     }
   };
@@ -366,92 +361,6 @@ export default function AcceptJsCheckout({
       setLoading(false);
     }
   };
-
-  // Show OTP verification step
-  if (showOTPStep) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-purple-900/30 border border-purple-700 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">Verification Code Sent</h3>
-          <p className="text-gray-300 mb-4">
-            We've sent a 6-digit verification code to <strong>{email}</strong>
-          </p>
-          <p className="text-sm text-gray-400">
-            Please check your email and enter the code below to complete your purchase.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Enter Verification Code
-          </label>
-          <input
-            type="text"
-            value={otpCode}
-            onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '');
-              setOtpCode(value.substring(0, 6));
-            }}
-            placeholder="000000"
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-2xl tracking-widest font-mono"
-            maxLength={6}
-            autoFocus
-          />
-        </div>
-
-        {error && (
-          <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleOTPVerify}
-            disabled={otpLoading || otpCode.length !== 6}
-            className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-          >
-            {otpLoading ? 'Verifying...' : 'Verify & Pay'}
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              if (!orderId) return;
-              setOtpLoading(true);
-              setError(null);
-              try {
-                const response = await fetch('/api/checkout/generate-otp', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ orderId, email })
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                  throw new Error(data.error || 'Failed to resend code');
-                }
-                setOtpCode('');
-                setError(null);
-                alert('New verification code sent to your email!');
-              } catch (err: any) {
-                setError(err.message);
-              } finally {
-                setOtpLoading(false);
-              }
-            }}
-            disabled={otpLoading}
-            className="px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            Resend
-          </button>
-        </div>
-
-        <p className="text-sm text-gray-400 text-center">
-          Didn't receive the code? Check your spam folder or click "Resend" above.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -691,6 +600,70 @@ export default function AcceptJsCheckout({
         </div>
       </div>
 
+      {/* OTP verification (same page, inline like crypto) */}
+      {showOTPStep && (
+        <div className="space-y-4 rounded-lg bg-gray-800 border border-gray-600 p-4">
+          <h4 className="text-lg font-semibold text-white">Verification code</h4>
+          <p className="text-sm text-gray-300">
+            We sent a 6-digit code to <strong className="text-white">{email}</strong>. Enter it below to complete your purchase.
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="000000"
+            value={otpCode}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '');
+              setOtpCode(value.substring(0, 6));
+            }}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-center text-xl tracking-widest placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleOTPVerify}
+              disabled={otpLoading || loading || otpCode.length !== 6}
+              className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+            >
+              {otpLoading || loading ? 'Verifying & paying...' : 'Verify & Pay'}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!orderId) return;
+                setOtpLoading(true);
+                setError(null);
+                try {
+                  const res = await fetch('/api/checkout/generate-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, email })
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Failed to resend code');
+                  setOtpCode('');
+                  setError(null);
+                  alert('New verification code sent to your email!');
+                } catch (err: any) {
+                  setError(err.message);
+                } finally {
+                  setOtpLoading(false);
+                }
+              }}
+              disabled={otpLoading || loading}
+              className="px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              Resend
+            </button>
+          </div>
+          <p className="text-sm text-gray-400">
+            Didn&apos;t receive the code? Check your spam folder or click Resend.
+          </p>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">
@@ -698,16 +671,18 @@ export default function AcceptJsCheckout({
         </div>
       )}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={loading || otpLoading || !acceptJsLoaded.current}
-        className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-      >
-        {loading || otpLoading ? 'Sending Verification Code...' : `Continue to Verification`}
-      </button>
+      {/* Submit: Send verification code (only when OTP step not yet shown) */}
+      {!showOTPStep && (
+        <button
+          type="submit"
+          disabled={loading || otpLoading || !acceptJsLoaded.current}
+          className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+        >
+          {loading || otpLoading ? 'Sending verification code...' : 'Send verification code'}
+        </button>
+      )}
 
-      {!acceptJsLoaded.current && (
+      {!acceptJsLoaded.current && !showOTPStep && (
         <p className="text-sm text-gray-400 text-center">
           Loading secure payment form...
         </p>

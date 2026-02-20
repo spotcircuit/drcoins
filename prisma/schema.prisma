@@ -57,6 +57,9 @@ model Order {
   authNetResponseCode  String?
   authNetAuthCode      String?
 
+  // ForumPay (crypto) payment id – used for webhook lookup
+  forumpayPaymentId String?
+
   // Order details
   liveMeId    String
   appliedRate Decimal @default(87) @db.Decimal(10, 2)
@@ -82,6 +85,7 @@ model Order {
   @@index([customerId])
   @@index([orderId])
   @@index([authNetTransactionId])
+  @@index([forumpayPaymentId])
   @@index([status])
   @@index([fulfillmentStatus])
   @@index([createdAt])
