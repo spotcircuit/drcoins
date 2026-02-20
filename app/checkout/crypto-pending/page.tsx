@@ -27,12 +27,6 @@ function CryptoPendingContent() {
         )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href={orderId ? `/success?orderId=${orderId}` : '/'}
-            className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold transition-colors"
-          >
-            I&apos;ve completed payment — view order
-          </Link>
-          <Link
             href="/"
             className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
           >
