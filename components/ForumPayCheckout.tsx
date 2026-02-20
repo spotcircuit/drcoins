@@ -27,8 +27,6 @@ const CRYPTO_OPTIONS: { value: string; label: string; image: string }[] = [
   { value: 'BTC', label: 'Bitcoin', image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png' },
   { value: 'ETH', label: 'Ethereum', image: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
   { value: 'USDT', label: 'USDT', image: 'https://assets.coingecko.com/coins/images/325/small/Tether.png' },
-  { value: 'XRP', label: 'XRP', image: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png' },
-  { value: 'BNB', label: 'BNB', image: 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png' },
   { value: 'SOL', label: 'Solana', image: 'https://assets.coingecko.com/coins/images/4128/small/solana.png' },
   { value: 'USDC', label: 'USDC', image: 'https://assets.coingecko.com/coins/images/6319/small/usdc.png' },
   { value: 'TRX', label: 'TRON', image: 'https://assets.coingecko.com/coins/images/1094/small/tron-logo.png' },
