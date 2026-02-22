@@ -153,8 +153,8 @@ export async function startPayment(params: {
     sid: params.sid ?? '',
   };
   if (params.webhookUrl) body.webhook_url = params.webhookUrl;
-  // redirect URLs not sent: on_success_redirect_url, on_failure_redirect_url
-  console.log("Forumpay webhook url=>>>>>>>>>>>>>>>>>", params.webhookUrl);
+  if (params.onSuccessRedirectUrl) body.on_success_redirect_url = params.onSuccessRedirectUrl;
+  if (params.onFailureRedirectUrl) body.on_failure_redirect_url = params.onFailureRedirectUrl;
   const data = await apiPost('StartPayment/', body);
   return data;
 }

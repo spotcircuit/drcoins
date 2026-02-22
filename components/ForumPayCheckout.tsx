@@ -37,18 +37,13 @@ export default function ForumPayCheckout({
   items,
   liveMeId,
   email,
-  firstName,
-  lastName,
   onSuccess,
   onError
 }: ForumPayCheckoutProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formFirstName, setFormFirstName] = useState(firstName ?? '');
-  const [formLastName, setFormLastName] = useState(lastName ?? '');
-  const [phone, setPhone] = useState('');
   const [cryptoCurrency, setCryptoCurrency] = useState('BTC');
-  const router = useRouter();
 
   // OTP step (same as card flow)
   const [showOTPStep, setShowOTPStep] = useState(false);
@@ -107,15 +102,6 @@ export default function ForumPayCheckout({
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!formFirstName?.trim() || !formLastName?.trim()) {
-      setError('Please enter your first and last name');
-      return;
-    }
-    if (!phone?.trim()) {
-      setError('Please enter your phone number');
-      return;
-    }
-
     setLoading(true);
     try {
       const orderRes = await fetch('/api/checkout-forumpay', {
@@ -125,9 +111,6 @@ export default function ForumPayCheckout({
           items,
           liveMeId,
           email,
-          firstName: formFirstName.trim(),
-          lastName: formLastName.trim(),
-          phone: phone.trim(),
           cryptoCurrency,
           createOnly: true,
         })
@@ -180,9 +163,6 @@ export default function ForumPayCheckout({
           items,
           liveMeId,
           email,
-          firstName: formFirstName.trim(),
-          lastName: formLastName.trim(),
-          phone: phone.trim(),
           cryptoCurrency,
         })
       });
@@ -190,13 +170,14 @@ export default function ForumPayCheckout({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start crypto payment');
 
-      if (data.orderId && onSuccess) onSuccess(data.orderId);
-
       if (data.paymentUrl) {
-        window.open(data.paymentUrl, '_blank', 'noopener,noreferrer');
-        router.push(`/checkout/crypto-pending?orderId=${encodeURIComponent(data.orderId)}`);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('forumpay_payment_url', data.paymentUrl);
+        }
+        router.push(`/checkout/crypto-pending?orderId=${encodeURIComponent(data.orderId ?? '')}`);
         return;
       }
+      if (data.orderId && onSuccess) onSuccess(data.orderId);
       setError('No payment URL received. Please try again.');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -214,45 +195,6 @@ export default function ForumPayCheckout({
         <p className="text-amber-200 text-sm">
           Pay with cryptocurrency. We&apos;ll send a verification code to your email before opening the payment page.
         </p>
-      </div>
-
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white">Your Information</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
-            <input
-              type="text"
-              value={formFirstName}
-              onChange={(e) => setFormFirstName(e.target.value)}
-              placeholder="First name"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
-            <input
-              type="text"
-              value={formLastName}
-              onChange={(e) => setFormLastName(e.target.value)}
-              placeholder="Last name"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              required
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Phone Number</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone number"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-            required
-          />
-        </div>
       </div>
 
       <div className="space-y-4">
