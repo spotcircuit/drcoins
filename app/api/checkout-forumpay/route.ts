@@ -134,6 +134,8 @@ export async function POST(req: NextRequest) {
       const currency = (cryptoCurrency || 'BTC').toString();
       const invoiceAmount = Number(order.amount).toFixed(2);
       const webhookUrl = `${APP_URL}/api/webhooks/forumpay`;
+      const successUrl = `${APP_URL}/success?orderId=${order.orderId}`;
+      const failureUrl = `${APP_URL}/checkout?error=crypto_failed`;
       let rateData: { payment_id: string; [k: string]: unknown };
       try {
         rateData = await getRate({
@@ -161,6 +163,8 @@ export async function POST(req: NextRequest) {
           payerId: order.liveMeId,
           payerIpAddress: payerIp,
           webhookUrl,
+          onSuccessRedirectUrl: successUrl,
+          onFailureRedirectUrl: failureUrl,
         });
       } catch (err: any) {
         console.error('ForumPay startPayment error:', err);
@@ -240,7 +244,8 @@ export async function POST(req: NextRequest) {
         payerId: liveMeId,
         payerIpAddress: payerIp,
         webhookUrl,
-        // onSuccessRedirectUrl / onFailureRedirectUrl not sent
+        onSuccessRedirectUrl: successUrl,
+        onFailureRedirectUrl: failureUrl,
       });
     } catch (err: any) {
       console.error('ForumPay startPayment error:', err);
