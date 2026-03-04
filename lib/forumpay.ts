@@ -193,3 +193,95 @@ export async function checkPayment(params: {
 export function isForumPayConfigured(): boolean {
   return !!(FORUMPAY_USER && FORUMPAY_SECRET);
 }
+
+/**
+ * Create Payment Link (Payment API).
+ * Creates a new payment link and optionally sends it to the consumer by email.
+ * Doc: https://sandbox.dashboard.forumpay.com/pay/payInfo.api#tag/Payment-API/operation/createPaymentLink
+ * Request: application/x-www-form-urlencoded, BasicAuth.
+ */
+export type CreatePaymentLinkParams = {
+  invoice_amount: string;
+  invoice_currency: string;
+  widget_type: string; // "0" | "1" | "2" | "3"
+  item_name?: string;
+  reference_no?: string;
+  website_id?: string;
+  webhook_url?: string;
+  redirect_url_on_success?: string;
+  redirect_url_on_failure?: string;
+  locale?: string;
+  secure_link?: boolean;
+  payer_id?: string;
+  payer_email?: string;
+  filter_countries?: string;
+  network_processing_fee_paid_by?: 'payer' | 'merchant';
+  allow_multiple_payments?: boolean;
+  email?: string; // optional; sending by email limited to 30/hour
+};
+
+export type CreatePaymentLinkResponse = {
+  payment_link?: string;
+  link?: string;
+  url?: string;
+  [k: string]: unknown;
+};
+
+const PAYMENT_API_BASE = process.env.FORUMPAY_PAYMENT_API_BASE_URL || FORUMPAY_BASE;
+
+async function paymentApiPost(action: string, body: Record<string, unknown>): Promise<any> {
+  const base = PAYMENT_API_BASE.replace(/\/$/, '');
+  const url = `${base}/${action}`;
+  const formBody = buildFormBody(body);
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: getAuthHeader(),
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formBody,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const errMsg = data?.err ?? data?.message ?? `ForumPay API error: ${res.status}`;
+    throw new Error(errMsg);
+  }
+  if (data?.err) {
+    throw new Error(data.err);
+  }
+  return data;
+}
+
+export async function createPaymentLink(params: CreatePaymentLinkParams): Promise<CreatePaymentLinkResponse> {
+  const body: Record<string, unknown> = {
+    invoice_amount: params.invoice_amount,
+    invoice_currency: params.invoice_currency,
+    widget_type: params.widget_type,
+  };
+  if (params.item_name != null && params.item_name !== '') body.item_name = params.item_name;
+  if (params.reference_no != null && params.reference_no !== '') body.reference_no = params.reference_no;
+  if (params.website_id != null && params.website_id !== '') body.website_id = params.website_id;
+  if (params.locale != null && params.locale !== '') body.locale = params.locale;
+  if (params.payer_id != null && params.payer_id !== '') body.payer_id = params.payer_id;
+  if (params.payer_email != null && params.payer_email !== '') body.payer_email = params.payer_email;
+  if (params.filter_countries != null && params.filter_countries !== '') body.filter_countries = params.filter_countries;
+  if (params.network_processing_fee_paid_by != null) body.network_processing_fee_paid_by = params.network_processing_fee_paid_by;
+  if (params.allow_multiple_payments !== undefined) body.allow_multiple_payments = params.allow_multiple_payments ? 'true' : 'false';
+  if (params.email != null && params.email !== '') body.email = params.email;
+
+  if (params.secure_link === true) {
+    body.secure_link = 'true';
+    if (params.webhook_url != null && params.webhook_url !== '') body.webhook_url = params.webhook_url;
+    if (params.redirect_url_on_success != null && params.redirect_url_on_success !== '') body.redirect_url_on_success = params.redirect_url_on_success;
+    if (params.redirect_url_on_failure != null && params.redirect_url_on_failure !== '') body.redirect_url_on_failure = params.redirect_url_on_failure;
+  }
+
+  const data = await paymentApiPost('CreatePaymentLink/', body as Record<string, unknown>);
+  return data;
+}
+
+/** Resolve payment URL from Create Payment Link response (field name may vary) */
+export function getPaymentLinkFromResponse(data: CreatePaymentLinkResponse): string | null {
+  return data.payment_link ?? data.link ?? data.url ?? null;
+}

@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const referenceNo = body.reference_no ?? body.referenceNo ?? body.order_id ?? body.orderId;
+    console.log('referenceNo', referenceNo);
     const paymentId = body.payment_id ?? body.paymentId ?? body.id;
     const posId = body.pos_id ?? 'web';
     const currency = body.currency ?? '';
