@@ -4,10 +4,11 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AcceptJsCheckout from '@/components/AcceptJsCheckout';
 import ForumPayCheckout from '@/components/ForumPayCheckout';
+import PlaidCheckout from '@/components/PlaidCheckout';
 import LiveMeIdModal from '@/components/LiveMeIdModal';
 import { useCart } from '@/contexts/CartContext';
 
-type PaymentMethod = 'card' | 'crypto';
+type PaymentMethod = 'card' | 'bank' | 'crypto';
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
@@ -18,6 +19,12 @@ function CheckoutContent() {
   const [showLiveMeModal, setShowLiveMeModal] = useState(false);
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  /** Keep Plaid mounted after first visit so switching Card ↔ Bank does not reload Link (avoids duplicate script warning). */
+  const [bankTabEverOpened, setBankTabEverOpened] = useState(false);
+
+  useEffect(() => {
+    if (paymentMethod === 'bank') setBankTabEverOpened(true);
+  }, [paymentMethod]);
 
   useEffect(() => {
     // Get items from URL params (for direct checkout) or cart
@@ -98,51 +105,98 @@ function CheckoutContent() {
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <h1 className="text-3xl font-bold text-white mb-8">Checkout</h1>
 
-        {/* Payment method selector */}
-        <div className="flex rounded-xl bg-gray-900/80 border border-gray-800 p-1 mb-6">
+        <p className="text-gray-400 text-sm mb-4 max-w-2xl">
+          Choose how you want to pay. Card and bank use email verification first; crypto opens ForumPay after you verify.
+        </p>
+
+        {/* Payment method selector — three equal columns, stacks on very small screens */}
+        <div
+          className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-1 rounded-xl bg-gray-900/80 border border-gray-800 p-1.5 sm:p-1 mb-6"
+          role="tablist"
+          aria-label="Payment method"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={paymentMethod === 'card'}
             onClick={() => setPaymentMethod('card')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+            className={`py-3 px-3 sm:px-4 rounded-lg font-medium text-sm sm:text-base transition-colors ${
               paymentMethod === 'card'
-                ? 'bg-purple-600 text-white'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
             }`}
           >
-            💳 Pay with Card
+            <span className="mr-1.5" aria-hidden>
+              💳
+            </span>
+            Card
           </button>
           <button
             type="button"
-            onClick={() => setPaymentMethod('crypto')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-              paymentMethod === 'crypto'
-                ? 'bg-amber-600 text-white'
-                : 'text-gray-400 hover:text-white'
+            role="tab"
+            aria-selected={paymentMethod === 'bank'}
+            onClick={() => setPaymentMethod('bank')}
+            className={`py-3 px-3 sm:px-4 rounded-lg font-medium text-sm sm:text-base transition-colors ${
+              paymentMethod === 'bank'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
             }`}
           >
-            ₿ Pay with Crypto
+            <span className="mr-1.5" aria-hidden>
+              🏦
+            </span>
+            Bank (ACH)
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={paymentMethod === 'crypto'}
+            onClick={() => setPaymentMethod('crypto')}
+            className={`py-3 px-3 sm:px-4 rounded-lg font-medium text-sm sm:text-base transition-colors ${
+              paymentMethod === 'crypto'
+                ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/30'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
+            }`}
+          >
+            <span className="mr-1.5" aria-hidden>
+              ₿
+            </span>
+            Crypto
           </button>
         </div>
-        
-        <div className="bg-gray-900/50 rounded-2xl p-8 border border-gray-800">
-          {paymentMethod === 'card' ? (
+
+        <div className="bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-800">
+          {paymentMethod === 'card' && (
             <AcceptJsCheckout
               items={checkoutItems}
               liveMeId={liveMeId}
               email={email}
               onSuccess={handleSuccess}
-              onError={(error) => {
-                console.error('Checkout error:', error);
+              onError={(err) => {
+                console.error('Checkout error:', err);
               }}
             />
-          ) : (
+          )}
+          {bankTabEverOpened && (
+            <div className={paymentMethod === 'bank' ? '' : 'hidden'} aria-hidden={paymentMethod !== 'bank'}>
+              <PlaidCheckout
+                items={checkoutItems}
+                liveMeId={liveMeId}
+                email={email}
+                onSuccess={handleSuccess}
+                onError={(err) => {
+                  console.error('Bank checkout error:', err);
+                }}
+              />
+            </div>
+          )}
+          {paymentMethod === 'crypto' && (
             <ForumPayCheckout
               items={checkoutItems}
               liveMeId={liveMeId}
               email={email}
-              onSuccess={handleSuccess}
-              onError={(error) => {
-                console.error('Crypto checkout error:', error);
+              onError={(err) => {
+                console.error('Crypto checkout error:', err);
               }}
             />
           )}

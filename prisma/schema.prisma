@@ -60,6 +60,10 @@ model Order {
   // ForumPay (crypto) payment id – used for webhook lookup
   forumpayPaymentId String?
 
+  // Plaid Transfer (bank debit via Transfer UI)
+  plaidTransferIntentId String?
+  plaidTransferId       String? @unique
+
   // Order details
   liveMeId    String
   appliedRate Decimal @default(87) @db.Decimal(10, 2)
