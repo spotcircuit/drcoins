@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { CHECKOUT_COUNTRY_OPTIONS, DEFAULT_CHECKOUT_COUNTRY } from '@/lib/checkout-countries';
 
 interface CheckoutItem {
   name: string;
@@ -48,7 +49,7 @@ export default function AcceptJsCheckout({
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [billingCountry, setBillingCountry] = useState('USA');
+  const [billingCountry, setBillingCountry] = useState(DEFAULT_CHECKOUT_COUNTRY);
   const acceptJsLoaded = useRef(false);
 
   // Contact info (editable; if user has existing data we could prefill via props later)
@@ -567,16 +568,11 @@ export default function AcceptJsCheckout({
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               >
-                <option value="USA">United States</option>
-                <option value="CAN">Canada</option>
-                <option value="MEX">Mexico</option>
-                <option value="BRA">Brazil</option>
-                <option value="COL">Colombia</option>
-                <option value="JAM">Jamaica</option>
-                <option value="NGA">Nigeria</option>
-                <option value="PRI">Puerto Rico</option>
-                <option value="GBR">United Kingdom</option>
-                <option value="VEN">Venezuela</option>
+                {CHECKOUT_COUNTRY_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
