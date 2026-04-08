@@ -10,6 +10,19 @@ export const CHECKOUT_COUNTRY_OPTIONS = [
   { value: 'PRI', label: 'Puerto Rico' },
   { value: 'GBR', label: 'United Kingdom' },
   { value: 'VEN', label: 'Venezuela' },
+  { value: 'PER', label: 'Perú' },
+  { value: 'CHL', label: 'Chile' },
+  { value: 'ARG', label: 'Argentina' },
+  { value: 'ECU', label: 'Ecuador' },
+  { value: 'PRY', label: 'Paraguay' },
+  { value: 'URY', label: 'Uruguay' },
+  { value: 'ITA', label: 'Italia' },
+  { value: 'ESP', label: 'España' },
+  { value: 'BOL', label: 'Bolivia' },
+  { value: 'PAN', label: 'Panamá' },
+  { value: 'SLV', label: 'El Salvador' },
+  { value: 'CRI', label: 'Costa Rica' },
+  { value: 'DOM', label: 'República Dominicana' },
 ] as const;
 
 export const DEFAULT_CHECKOUT_COUNTRY = 'USA';
