@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CHECKOUT_COUNTRY_OPTIONS, DEFAULT_CHECKOUT_COUNTRY } from '@/lib/checkout-countries';
+import { CountryAutocomplete } from '@/components/CountryAutocomplete';
 
 interface CheckoutItem {
   name: string;
@@ -49,7 +49,7 @@ export default function AcceptJsCheckout({
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [billingCountry, setBillingCountry] = useState(DEFAULT_CHECKOUT_COUNTRY);
+  const [billingCountry, setBillingCountry] = useState('');
   const acceptJsLoaded = useRef(false);
 
   // Contact info (editable; if user has existing data we could prefill via props later)
@@ -126,6 +126,11 @@ export default function AcceptJsCheckout({
     }
     if (!billingAddress?.trim() || !billingCity?.trim() || !billingState?.trim() || !billingZip?.trim()) {
       setError('Please fill in your full billing address');
+      setLoading(false);
+      return;
+    }
+    if (!billingCountry?.trim()) {
+      setError('Please select your country');
       setLoading(false);
       return;
     }
@@ -562,18 +567,13 @@ export default function AcceptJsCheckout({
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Country
               </label>
-              <select
+              <CountryAutocomplete
                 value={billingCountry}
-                onChange={(e) => setBillingCountry(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                onChange={setBillingCountry}
+                placeholder="Select country…"
                 required
-              >
-                {CHECKOUT_COUNTRY_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                inputClassName="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
             </div>
           </div>
         </div>

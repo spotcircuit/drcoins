@@ -24,5 +24,3 @@ export const CHECKOUT_COUNTRY_OPTIONS = [
   { value: 'CRI', label: 'Costa Rica' },
   { value: 'DOM', label: 'República Dominicana' },
 ] as const;
-
-export const DEFAULT_CHECKOUT_COUNTRY = 'USA';

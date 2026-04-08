@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
 import type { PlaidLinkOnSuccessMetadata } from 'react-plaid-link';
-import { CHECKOUT_COUNTRY_OPTIONS, DEFAULT_CHECKOUT_COUNTRY } from '@/lib/checkout-countries';
+import { CountryAutocomplete } from '@/components/CountryAutocomplete';
 
 interface CheckoutItem {
   name: string;
@@ -46,7 +46,7 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
   const [billingCity, setBillingCity] = useState('');
   const [billingState, setBillingState] = useState('');
   const [billingZip, setBillingZip] = useState('');
-  const [billingCountry, setBillingCountry] = useState(DEFAULT_CHECKOUT_COUNTRY);
+  const [billingCountry, setBillingCountry] = useState('');
   const [achAuthorized, setAchAuthorized] = useState(false);
 
   const totalAmount = items.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);
@@ -119,6 +119,10 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
     }
     if (!billingAddress.trim() || !billingCity.trim() || !billingState.trim() || !billingZip.trim()) {
       setError('Please fill in your full billing address (required for ACH)');
+      return;
+    }
+    if (!billingCountry.trim()) {
+      setError('Please select your country');
       return;
     }
     if (!achAuthorized) {
@@ -293,18 +297,14 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
               onChange={(e) => setBillingZip(e.target.value)}
               className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
-            <select
+            <CountryAutocomplete
               value={billingCountry}
-              onChange={(e) => setBillingCountry(e.target.value)}
+              onChange={setBillingCountry}
               aria-label="Country"
-              className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-0"
-            >
-              {CHECKOUT_COUNTRY_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              placeholder="Select country…"
+              required
+              inputClassName="w-full min-w-0 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
 
           <label className="flex items-start gap-3 cursor-pointer group">
