@@ -11,7 +11,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "plaid:fire-webhook": "node scripts/fire-plaid-transfer-webhook.cjs",
+    "plaid:fire-item-new-accounts": "node scripts/fire-plaid-item-new-accounts-webhook.cjs",
+    "plaid:sandbox-access-token": "node scripts/sandbox-plaid-print-access-token.cjs",
+    "plaid:accounts-get": "node scripts/plaid-sandbox-accounts-get.cjs"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +25,7 @@
     "@prisma/client": "^5.22.0",
     "@vercel/blob": "^2.0.0",
     "authorizenet": "^1.0.8",
+    "jose": "^5.10.0",
     "libphonenumber-js": "^1.12.41",
     "next": "^16.1.6",
     "plaid": "^41.4.0",
@@ -36,6 +41,7 @@
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^17.4.2",
     "eslint": "^9.34.0",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.6",

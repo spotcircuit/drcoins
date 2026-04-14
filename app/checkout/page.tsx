@@ -56,9 +56,10 @@ function CheckoutContent() {
     }
   }, [checkoutItems, liveMeId, email]);
 
-  const handleSuccess = (orderId: string) => {
+  const handleSuccess = (orderId: string, meta?: { bankTransferPendingSettlement?: boolean }) => {
     clearCart();
-    router.push(`/success?orderId=${orderId}`);
+    const pending = meta?.bankTransferPendingSettlement === true;
+    router.push(`/success?orderId=${encodeURIComponent(orderId)}${pending ? '&bankPending=1' : ''}`);
   };
 
   if (checkoutItems.length === 0) {

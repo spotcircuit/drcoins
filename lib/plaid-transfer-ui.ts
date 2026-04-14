@@ -86,6 +86,9 @@ export async function createTransferUiSession(input: TransferUiSessionInput): Pr
   }
 
   const customization = process.env.PLAID_LINK_CUSTOMIZATION_NAME?.trim() || 'default';
+  const appBase = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '');
+  /** Item/Link webhooks (e.g. onboarding /sandbox/item/fire_webhook); Transfer team webhooks are configured separately in Dashboard. */
+  const itemWebhook = appBase ? `${appBase}/api/webhooks/plaid` : undefined;
 
   try {
     const linkRes = await plaid.linkTokenCreate({
@@ -96,12 +99,14 @@ export async function createTransferUiSession(input: TransferUiSessionInput): Pr
       language: 'en',
       transfer: { intent_id: intentId },
       link_customization_name: customization,
+      ...(itemWebhook ? { webhook: itemWebhook } : {}),
     });
     logPlaid('link_token_create_transfer_ui:ok', {
       orderId: input.orderId,
       transfer_intent_id: intentId,
       request_id: plaidRequestIdFromResponse(linkRes) ?? linkRes.data.request_id,
       expiration: linkRes.data.expiration,
+      item_webhook: itemWebhook ?? '(not set — set NEXT_PUBLIC_APP_URL)',
     });
     return {
       link_token: linkRes.data.link_token,

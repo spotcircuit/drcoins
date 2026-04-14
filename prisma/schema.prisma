@@ -61,8 +61,14 @@ model Order {
   forumpayPaymentId String?
 
   // Plaid Transfer (bank debit via Transfer UI)
-  plaidTransferIntentId String?
-  plaidTransferId       String? @unique
+  plaidTransferIntentId           String?
+  plaidTransferId                 String?   @unique
+  /// Set when Plaid reports ACH settled (Transfer webhook → /transfer/event/sync).
+  plaidTransferSettledAt          DateTime?
+  /// Set when Plaid reports funds_available on the debit (ledger).
+  plaidTransferFundsAvailableAt DateTime?
+  /// Set when Plaid reports an ACH return on this transfer.
+  plaidTransferReturnedAt         DateTime?
 
   // Order details
   liveMeId    String
@@ -93,6 +99,13 @@ model Order {
   @@index([status])
   @@index([fulfillmentStatus])
   @@index([createdAt])
+}
+
+// Cursor for Plaid /transfer/event/sync (singleton row id = default).
+model PlaidTransferSyncCursor {
+  id          String   @id @default("default")
+  lastEventId Int      @default(0)
+  updatedAt   DateTime @updatedAt
 }
 
 // Order items - individual products in an order

@@ -18,7 +18,8 @@ interface PlaidCheckoutProps {
   items: CheckoutItem[];
   liveMeId: string;
   email: string;
-  onSuccess?: (orderId: string) => void;
+  /** Second arg is set when ACH is submitted but not yet settled in Plaid (webhook will complete the order). */
+  onSuccess?: (orderId: string, meta?: { bankTransferPendingSettlement?: boolean }) => void;
   onError?: (error: string) => void;
 }
 
@@ -70,7 +71,9 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Bank payment failed');
-        onSuccess?.(data.orderId);
+        onSuccess?.(data.orderId, {
+          bankTransferPendingSettlement: data.bankTransferPendingSettlement === true,
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Something went wrong';
         setError(msg);
@@ -219,7 +222,7 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
           <p className="font-semibold text-white">Pay from your bank (ACH)</p>
           <p>
             Connect your account with Plaid Transfer: your one-time debit is originated by Plaid (ACH). Settlement can take
-            1–3 business days; your order is confirmed once the transfer is successfully created in Plaid.
+            1–3 business days; your order is fully confirmed after Plaid reports settlement (we email you again then).
           </p>
         </div>
       </div>

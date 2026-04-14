@@ -36,6 +36,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Sandbox-only debug file (see PLAID_DEBUG_SAVE_SANDBOX_ACCESS_TOKEN_FILE)
+tmp/plaid-sandbox-access-token.txt
+
 # project-specific development files
 .claude/
 specs/

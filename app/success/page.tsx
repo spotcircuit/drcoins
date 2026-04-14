@@ -11,6 +11,7 @@ function SuccessContent() {
   const orderId = searchParams.get('orderId');
   const amount = searchParams.get('amount');
   const coins = searchParams.get('coins');
+  const bankPending = searchParams.get('bankPending') === '1';
   const [loading, setLoading] = useState(true);
   const [videoSrc, setVideoSrc] = useState('');
   const [celebrationMessage, setCelebrationMessage] = useState('');
@@ -28,31 +29,36 @@ function SuccessContent() {
       const randomVideo = videos[Math.floor(Math.random() * videos.length)];
       setVideoSrc(randomVideo);
 
-      // Create celebration message based on amount
       const purchaseAmount = amount ? parseFloat(amount) : Math.floor(Math.random() * 500) + 20;
       const purchaseCoins = coins ? parseInt(coins) : Math.floor(purchaseAmount * 34.8);
-      
-      const messages = [
-        `💰 JACKPOT! You just scored ${purchaseCoins} coins for $${purchaseAmount}!`,
-        `🎉 AMAZING! ${purchaseCoins} coins are heading your way!`,
-        `✨ INCREDIBLE! You've secured ${purchaseCoins} shiny coins!`,
-        `🎊 FANTASTIC! ${purchaseCoins} coins purchased for $${purchaseAmount}!`,
-        `🌟 WINNER! You've got ${purchaseCoins} coins coming!`
-      ];
-      setCelebrationMessage(messages[Math.floor(Math.random() * messages.length)]);
-      
-      // Generate confetti items on client side only
-      const items = [...Array(20)].map(() => ({
-        emoji: ['🪙', '💰', '✨', '🎉', '🎊'][Math.floor(Math.random() * 5)],
-        left: `${Math.random() * 100}%`,
-        delay: `${Math.random() * 3}s`,
-        duration: `${3 + Math.random() * 2}s`
-      }));
-      setConfettiItems(items);
+
+      if (bankPending) {
+        setCelebrationMessage(
+          `Your bank transfer is in progress. When it settles (often 1–3 business days), we will confirm your order by email.`
+        );
+        setConfettiItems([]);
+      } else {
+        const messages = [
+          `💰 JACKPOT! You just scored ${purchaseCoins} coins for $${purchaseAmount}!`,
+          `🎉 AMAZING! ${purchaseCoins} coins are heading your way!`,
+          `✨ INCREDIBLE! You've secured ${purchaseCoins} shiny coins!`,
+          `🎊 FANTASTIC! ${purchaseCoins} coins purchased for $${purchaseAmount}!`,
+          `🌟 WINNER! You've got ${purchaseCoins} coins coming!`
+        ];
+        setCelebrationMessage(messages[Math.floor(Math.random() * messages.length)]);
+
+        const items = [...Array(20)].map(() => ({
+          emoji: ['🪙', '💰', '✨', '🎉', '🎊'][Math.floor(Math.random() * 5)],
+          left: `${Math.random() * 100}%`,
+          delay: `${Math.random() * 3}s`,
+          duration: `${3 + Math.random() * 2}s`
+        }));
+        setConfettiItems(items);
+      }
       
       setLoading(false);
     }
-  }, [sessionId, orderId, amount, coins]);
+  }, [sessionId, orderId, amount, coins, bankPending]);
 
   useEffect(() => {
     if (videoRef.current && videoSrc) {
@@ -135,17 +141,23 @@ function SuccessContent() {
         </div>
         
         <h1 className="text-4xl font-bold text-white mb-4 animate-slideUp">
-          Payment Successful!
+          {bankPending ? 'Bank transfer submitted' : 'Payment Successful!'}
         </h1>
-        
-        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-transparent bg-clip-text">
-          <p className="text-2xl font-bold mb-4 animate-pulse">
-            {celebrationMessage}
-          </p>
+
+        <div
+          className={
+            bankPending
+              ? 'text-emerald-100'
+              : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-transparent bg-clip-text'
+          }
+        >
+          <p className={`text-2xl font-bold mb-4 ${bankPending ? '' : 'animate-pulse'}`}>{celebrationMessage}</p>
         </div>
-        
+
         <p className="text-white/90 mb-6 text-lg">
-          Your Dr. Coins are being delivered to your LiveMe account!
+          {bankPending
+            ? 'We received your ACH payment request. You will get another email when the transfer settles and your order is fully confirmed.'
+            : 'Your Dr. Coins are being delivered to your LiveMe account!'}
         </p>
         
         {(sessionId || orderId) && (

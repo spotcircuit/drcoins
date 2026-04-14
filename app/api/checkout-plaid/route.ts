@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
 import { TransferIntentStatus } from 'plaid';
 import { prisma } from '@/lib/prisma';
@@ -65,6 +67,21 @@ export async function POST(req: NextRequest) {
         transactionId: order.plaidTransferId,
         amount: order.amount.toNumber(),
         status: order.status,
+        bankTransferPendingSettlement: false,
+        transferStatus: typeof transferStatus === 'string' ? transferStatus : undefined,
+      });
+    }
+
+    /** Link success already recorded; ACH settlement happens via Plaid webhooks. */
+    if (order.status === 'PROCESSING' && order.plaidTransferId) {
+      logPlaid('checkout_pay:idempotent_processing', { orderId: order.orderId, plaidTransferId: order.plaidTransferId });
+      return NextResponse.json({
+        success: true,
+        orderId: order.orderId,
+        transactionId: order.plaidTransferId,
+        amount: order.amount.toNumber(),
+        status: order.status,
+        bankTransferPendingSettlement: true,
         transferStatus: typeof transferStatus === 'string' ? transferStatus : undefined,
       });
     }
@@ -83,6 +100,13 @@ export async function POST(req: NextRequest) {
     const customer = order.customer;
     const plaid = getPlaidClient();
     let accessTokenForCleanup: string | null = null;
+    const plaidEnv = (process.env.PLAID_ENV || '').toLowerCase();
+    const isPlaidSandbox = plaidEnv === 'sandbox';
+    const sandboxDebugSkipItemRemove =
+      isPlaidSandbox && process.env.PLAID_DEBUG_SKIP_ITEM_REMOVE_SANDBOX === 'true';
+    const sandboxDebugTokenFile = isPlaidSandbox
+      ? process.env.PLAID_DEBUG_SAVE_SANDBOX_ACCESS_TOKEN_FILE?.trim()
+      : undefined;
 
     try {
       logPlaid('checkout_pay:start', {
@@ -147,17 +171,33 @@ export async function POST(req: NextRequest) {
           const accessToken = exchange.data.access_token;
           if (accessToken) {
             accessTokenForCleanup = accessToken;
-            void plaid
-              .itemRemove({ access_token: accessToken })
-              .then((rm) => {
-                logPlaid('item_remove:ok', {
-                  orderId: order.orderId,
-                  request_id: plaidRequestIdFromResponse(rm) ?? rm.data?.request_id,
+            if (sandboxDebugTokenFile) {
+              const abs = path.isAbsolute(sandboxDebugTokenFile)
+                ? sandboxDebugTokenFile
+                : path.join(process.cwd(), sandboxDebugTokenFile);
+              try {
+                await mkdir(path.dirname(abs), { recursive: true });
+                await writeFile(abs, `${accessToken}\n`, 'utf8');
+                logPlaid('debug_sandbox_access_token_file', { path: abs, orderId: order.orderId });
+              } catch (fileErr: unknown) {
+                logPlaidApiError('debug_sandbox_access_token_file_failed', fileErr, { orderId: order.orderId });
+              }
+            }
+            if (sandboxDebugSkipItemRemove) {
+              logPlaid('debug_skip_item_remove_sandbox', { orderId: order.orderId });
+            } else {
+              void plaid
+                .itemRemove({ access_token: accessToken })
+                .then((rm) => {
+                  logPlaid('item_remove:ok', {
+                    orderId: order.orderId,
+                    request_id: plaidRequestIdFromResponse(rm) ?? rm.data?.request_id,
+                  });
+                })
+                .catch((e: unknown) => {
+                  logPlaidApiError('item_remove:failed', e, { orderId: order.orderId });
                 });
-              })
-              .catch((e: unknown) => {
-                logPlaidApiError('item_remove:failed', e, { orderId: order.orderId });
-              });
+            }
             accessTokenForCleanup = null;
           }
         } catch (e: unknown) {
@@ -168,16 +208,11 @@ export async function POST(req: NextRequest) {
       const updatedOrder = await prisma.order.update({
         where: { id: order.id },
         data: {
-          status: 'COMPLETED',
+          status: 'PROCESSING',
           plaidTransferId: transferId,
           paymentMethod: 'Bank (ACH)',
         },
         include: { items: true },
-      });
-
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { lastOrderDate: new Date() },
       });
 
       const finalOrderResult = await prisma.order.findUnique({
@@ -202,14 +237,14 @@ export async function POST(req: NextRequest) {
             from: getSenderEmail(),
             to: customer.email,
             bcc: 'drcoins73@gmail.com',
-            subject: 'Payment Successful - Dr. Coins',
+            subject: 'Bank transfer submitted - Dr. Coins',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2 style="color: #7c3aed;">Thank you for your purchase!</h2>
-                  <p>Your payment of <strong>$${finalOrder.amount}</strong> has been submitted via bank transfer (Plaid).</p>
+                  <h2 style="color: #7c3aed;">We received your bank transfer</h2>
+                  <p>Your payment of <strong>$${finalOrder.amount}</strong> has been <strong>submitted</strong> via ACH (Plaid). We will email you again when the transfer <strong>settles</strong> and your order is fully confirmed.</p>
                   ${finalOrder.liveMeId ? `<p><strong>LiveMe ID:</strong> ${finalOrder.liveMeId}</p>` : ''}
                   <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h3 style="color: #1f2937; margin-top: 0;">Items Purchased:</h3>
+                    <h3 style="color: #1f2937; margin-top: 0;">Items:</h3>
                     <ul>
                       ${finalOrder.items
                         .map((item) => {
@@ -226,12 +261,12 @@ export async function POST(req: NextRequest) {
                   </div>
                   <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
                     <p style="margin: 0;"><strong>What's next?</strong></p>
-                    <p style="margin: 10px 0 0 0;">ACH transfers can take 1–3 business days to settle. Your order is confirmed once Plaid has originated the transfer.</p>
+                    <p style="margin: 10px 0 0 0;">ACH can take 1–3 business days to settle. Your order moves to confirmed when we receive the settlement webhook from Plaid.</p>
                   </div>
                   <p style="color: #6b7280; font-size: 14px;">- The Dr. Coins Team</p>
                 </div>
               `,
-            text: `Payment submitted - $${finalOrder.amount}${totalCoins > 0 ? ` (${totalCoins.toLocaleString()} coins)` : ''}. Bank transfer via Plaid.`,
+            text: `Bank transfer submitted - $${finalOrder.amount}${totalCoins > 0 ? ` (${totalCoins.toLocaleString()} coins)` : ''}. You will receive another email when it settles.`,
           });
 
           await prisma.emailLog.create({
@@ -239,7 +274,7 @@ export async function POST(req: NextRequest) {
               orderId: finalOrder.id,
               email: customer.email,
               type: 'PAYMENT_SUCCESS',
-              subject: 'Payment Successful - Dr. Coins',
+              subject: 'Bank transfer submitted - Dr. Coins',
               success: true,
             },
           });
@@ -248,29 +283,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const adminEmail = process.env.ADMIN_EMAIL || 'drcoins73@gmail.com';
-      try {
-        await resend.emails.send({
-          from: getSenderEmail(),
-          to: adminEmail,
-          subject: `New Order (Plaid Transfer) - ${finalOrder.liveMeId || 'No LiveMe ID'}`,
-          html: `<p>New bank order: ${customer.email} — $${finalOrder.amount} — Plaid transfer ${transferId}</p>`,
-          text: `New bank order from ${customer.email} for $${finalOrder.amount}. Plaid transfer ${transferId}`,
-        });
-        await prisma.emailLog.create({
-          data: {
-            orderId: finalOrder.id,
-            email: adminEmail,
-            type: 'ADMIN_NOTIFICATION',
-            subject: `New Order (Plaid Transfer) - ${finalOrder.liveMeId || 'No LiveMe ID'}`,
-            success: true,
-          },
-        });
-      } catch (e) {
-        console.error('Plaid checkout admin email:', e);
-      }
-
-      logPlaid('checkout_pay:complete', {
+      logPlaid('checkout_pay:transfer_submitted', {
         orderId: updatedOrder.orderId,
         plaidTransferId: transferId,
       });
@@ -281,6 +294,7 @@ export async function POST(req: NextRequest) {
         transactionId: transferId,
         amount: orderAmount,
         status: updatedOrder.status,
+        bankTransferPendingSettlement: true,
       });
     } catch (paymentError: unknown) {
       logPlaidApiError('checkout_pay:failed', paymentError, { orderId: order.orderId });
