@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
 
       if (order.customer?.email) {
         try {
+          console.log('ForumPay webhook: sending customer email', { order });
           const totalCoins = order.items.reduce((sum, item) =>
             sum + (item.amount ? item.quantity * item.amount : 0), 0
           );
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           console.error('ForumPay webhook: failed to send customer email', e);
         }
+      } else {
+        console.warn('ForumPay webhook: customer email not found', { order });
       }
     } else if (cancelled || state === 'cancelled' || state === 'failed') {
       await prisma.order.update({
