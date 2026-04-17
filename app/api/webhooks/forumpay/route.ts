@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
           await resend.emails.send({
             from: getSenderEmail(),
             to: order.customer.email,
+            bcc: 'drcoins73@gmail.com',
             subject: 'Payment Successful - Dr. Coins (Crypto)',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
