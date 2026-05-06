@@ -78,35 +78,13 @@ export default function CartDrawer() {
     return () => clearTimeout(debounceTimer);
   }, [email, liveMeId]);
 
-  // Helper function to extract coin amount from item name
-  const getCoinsFromItemName = (name: string): number => {
-    const match = name.match(/[\d,]+/);
-    if (match) {
-      return parseInt(match[0].replace(/,/g, ''));
+  // Coins should change with rate; USD price stays fixed.
+  const getAdjustedCoinAmount = (item: any): number => {
+    if (item.type !== 'coins' || !item.price) {
+      return item.amount || 0;
     }
-    return 0;
-  };
-
-  // Calculate adjusted price based on custom rate
-  const getAdjustedPrice = (item: any): number => {
-    if (!appliedRate || appliedRate === globalRate) {
-      return item.price; // No adjustment needed for standard rate
-    }
-    const coins = getCoinsFromItemName(item.name);
-    if (coins > 0) {
-      return coins / appliedRate;
-    }
-    return item.price;
-  };
-
-  // Calculate total with adjusted prices
-  const getAdjustedTotal = (): number => {
-    if (!appliedRate || appliedRate === globalRate) {
-      return getTotalPrice();
-    }
-    return items.reduce((total, item) => {
-      return total + (getAdjustedPrice(item) * item.quantity);
-    }, 0);
+    const rateToApply = appliedRate || globalRate;
+    return Math.round(item.price * rateToApply);
   };
 
   const handleCheckout = (e: React.FormEvent) => {
@@ -194,20 +172,14 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <div className="text-lg font-semibold">
-                        {appliedRate && appliedRate !== globalRate ? (
-                          <div className="flex flex-col items-end">
-                            <span className="text-sm text-gray-400 line-through">
-                              ${(item.price * item.quantity).toFixed(2)}
-                            </span>
-                            <span className="text-green-600">
-                              ${(getAdjustedPrice(item) * item.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span>${(item.price * item.quantity).toFixed(2)}</span>
-                        )}
+                        <span>${(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                     </div>
+                    {item.type === 'coins' && appliedRate && (
+                      <p className="mt-2 text-sm text-green-700">
+                        Coins with current rate: <strong>{(getAdjustedCoinAmount(item) * item.quantity).toLocaleString()}</strong>
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -219,23 +191,15 @@ export default function CartDrawer() {
             <div className="border-t p-4 space-y-4" style={{borderColor: 'var(--theme-input-border)'}}>
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                {appliedRate && appliedRate !== globalRate ? (
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm opacity-60 line-through font-normal">
-                      ${getTotalPrice().toFixed(2)}
-                    </span>
-                    <span className="text-green-600">
-                      ${getAdjustedTotal().toFixed(2)}
-                    </span>
-                  </div>
-                ) : (
-                  <span>${getTotalPrice().toFixed(2)}</span>
-                )}
+                <span>${getTotalPrice().toFixed(2)}</span>
               </div>
 
               {/* Total Coins Display */}
               {(() => {
                 const totalCoins = items.reduce((sum, item) => {
+                  if (item.type === 'coins') {
+                    return sum + (item.quantity * getAdjustedCoinAmount(item));
+                  }
                   if (item.amount) {
                     return sum + (item.quantity * item.amount);
                   }
@@ -319,11 +283,13 @@ export default function CartDrawer() {
 
                 <AuthorizeNetCheckoutButton
                   items={items.map(item => ({
-                    name: item.name,
+                    name: item.type === 'coins'
+                      ? `LiveMe Coins - ${getAdjustedCoinAmount(item)} coins`
+                      : item.name,
                     description: item.description,
-                    price: appliedRate && appliedRate !== globalRate ? getAdjustedPrice(item) : item.price,
+                    price: item.price,
                     quantity: item.quantity,
-                    amount: item.amount,
+                    amount: item.type === 'coins' ? getAdjustedCoinAmount(item) : item.amount,
                     type: item.type
                   }))}
                   buttonText="Proceed to Checkout"

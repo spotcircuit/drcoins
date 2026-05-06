@@ -92,6 +92,14 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
       setSelectedCoins(initialCoins);
     }
   }, [initialCoins]);
+
+  React.useEffect(() => {
+    setSelectedCoins((current) => {
+      if (current < minCoins) return minCoins;
+      if (current > maxCoins) return maxCoins;
+      return current;
+    });
+  }, [minCoins, maxCoins]);
   
   return (
     <Container className="py-10 lg:py-12">
@@ -527,7 +535,27 @@ const Shell: React.FC<{ page: Page; setPage: (p: Page) => void }>= ({ page, setP
 };
 
 // HOME
-const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: number) => void }>= ({ setPage, setInitialCoins }) => (
+const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: number) => void }>= ({ setPage, setInitialCoins }) => {
+  const [coinsPerDollar, setCoinsPerDollar] = React.useState(87);
+
+  React.useEffect(() => {
+    const loadGlobalRate = async () => {
+      try {
+        const res = await fetch('/api/rates/check');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.globalRate === 'number' && data.globalRate > 0) {
+          setCoinsPerDollar(data.globalRate);
+        }
+      } catch (error) {
+        console.error('Failed to load global rate on home, using fallback 87:', error);
+      }
+    };
+
+    loadGlobalRate();
+  }, []);
+
+  return (
   <div className={`relative bg-gradient-to-b ${brand.bg}`}>
     {/* Hero Section with Logo */}
     <Container className=" py-12 sm:py-16 lg:py-20">
@@ -587,9 +615,12 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: nu
               </div>
               <div className="mb-4 text-sm font-semibold text-slate-900 relative z-10">Featured bundles</div>
               <div className="grid gap-3 sm:grid-cols-2 relative z-10">
-                {[{name:"1,740 Coins", price:20.00, coins:1740},{name:"4,350 Coins", price:50.00, coins:4350},{name:"8,700 Coins", price:100.00, coins:8700},{name:"26,100 Coins", price:300.00, coins:26100}].map((p)=> (
-                  <div key={p.name} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm relative">
-                    <div className="text-sm font-medium text-slate-900">{p.name}</div>
+                {[{price:20.00},{price:50.00},{price:100.00},{price:300.00}].map((p)=> {
+                  const dynamicCoins = Math.round(p.price * coinsPerDollar);
+                  const dynamicName = `${dynamicCoins.toLocaleString()} Coins`;
+                  return (
+                  <div key={p.price} className="rounded-xl border-2 border-purple-400 bg-white/90 p-4 shadow-sm relative">
+                    <div className="text-sm font-medium text-slate-900">{dynamicName}</div>
                     <div className="mt-1 text-xs text-slate-700">Instant delivery after ID match</div>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="text-lg font-semibold text-slate-900">${p.price.toFixed(2)}</div>
@@ -597,12 +628,8 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: nu
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if(p.name.includes("Coins")) {
-                            setInitialCoins(p.coins);
-                            setPage("Shop Coins");
-                          } else {
-                            setPage("Shop Points");
-                          }
+                          setInitialCoins(dynamicCoins);
+                          setPage("Shop Coins");
                         }} 
                         className="relative z-20 rounded-lg border-2 border-purple-400 bg-purple-50/90 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer"
                       >
@@ -610,7 +637,7 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: nu
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </div>
@@ -628,7 +655,8 @@ const HomeMock: React.FC<{ setPage: (p: Page)=>void, setInitialCoins: (coins: nu
       </div>
     </Container>
   </div>
-);
+  );
+};
 
 // MAIN APP
 export default function DrCoinsMockups() {
