@@ -21,6 +21,7 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
   const [checkingRate, setCheckingRate] = useState(false);
   const [appliedRate, setAppliedRate] = useState<number | null>(null);
   const [isCustomRate, setIsCustomRate] = useState(false);
+  const [globalRate, setGlobalRate] = useState(87);
 
   useEffect(() => {
     setMounted(true);
@@ -40,6 +41,25 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
         setEmail(savedEmail);
       }
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadGlobalRate = async () => {
+      try {
+        const res = await fetch('/api/rates/check');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.globalRate === 'number' && data.globalRate > 0) {
+          setGlobalRate(data.globalRate);
+        }
+      } catch (err) {
+        console.error('Failed to load global rate:', err);
+      }
+    };
+
+    loadGlobalRate();
   }, [isOpen]);
 
   // Check rate when email is entered
@@ -172,7 +192,7 @@ export default function LiveMeIdModal({ isOpen, onCloseAction, onConfirmAction, 
                       <p className="text-sm text-green-700">
                         You have a custom rate of <strong>{appliedRate} coins per $1</strong>
                         <br />
-                        <span className="text-xs text-green-600">(Standard rate: 87 coins per $1)</span>
+                        <span className="text-xs text-green-600">(Standard rate: {globalRate} coins per $1)</span>
                       </p>
                     </>
                   ) : (

@@ -12,6 +12,24 @@ export default function CartDrawer() {
   const [checkingRate, setCheckingRate] = useState(false);
   const [appliedRate, setAppliedRate] = useState<number | null>(null);
   const [isCustomRate, setIsCustomRate] = useState(false);
+  const [globalRate, setGlobalRate] = useState(87);
+
+  useEffect(() => {
+    const loadGlobalRate = async () => {
+      try {
+        const res = await fetch('/api/rates/check');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.globalRate === 'number' && data.globalRate > 0) {
+          setGlobalRate(data.globalRate);
+        }
+      } catch (err) {
+        console.error('Failed to load global rate:', err);
+      }
+    };
+
+    loadGlobalRate();
+  }, []);
 
   // Load saved email and LiveMe ID from session storage
   useEffect(() => {
@@ -71,7 +89,7 @@ export default function CartDrawer() {
 
   // Calculate adjusted price based on custom rate
   const getAdjustedPrice = (item: any): number => {
-    if (!appliedRate || appliedRate === 87) {
+    if (!appliedRate || appliedRate === globalRate) {
       return item.price; // No adjustment needed for standard rate
     }
     const coins = getCoinsFromItemName(item.name);
@@ -83,7 +101,7 @@ export default function CartDrawer() {
 
   // Calculate total with adjusted prices
   const getAdjustedTotal = (): number => {
-    if (!appliedRate || appliedRate === 87) {
+    if (!appliedRate || appliedRate === globalRate) {
       return getTotalPrice();
     }
     return items.reduce((total, item) => {
@@ -176,7 +194,7 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <div className="text-lg font-semibold">
-                        {appliedRate && appliedRate !== 87 ? (
+                        {appliedRate && appliedRate !== globalRate ? (
                           <div className="flex flex-col items-end">
                             <span className="text-sm text-gray-400 line-through">
                               ${(item.price * item.quantity).toFixed(2)}
@@ -201,7 +219,7 @@ export default function CartDrawer() {
             <div className="border-t p-4 space-y-4" style={{borderColor: 'var(--theme-input-border)'}}>
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                {appliedRate && appliedRate !== 87 ? (
+                {appliedRate && appliedRate !== globalRate ? (
                   <div className="flex flex-col items-end">
                     <span className="text-sm opacity-60 line-through font-normal">
                       ${getTotalPrice().toFixed(2)}
@@ -288,7 +306,7 @@ export default function CartDrawer() {
                         <p className="text-sm text-green-700">
                           You have a custom rate of <strong>{appliedRate} coins per $1</strong>
                           <br />
-                          <span className="text-xs text-green-600">(Standard rate: 87 coins per $1)</span>
+                          <span className="text-xs text-green-600">(Standard rate: {globalRate} coins per $1)</span>
                         </p>
                       </>
                     ) : (
@@ -303,7 +321,7 @@ export default function CartDrawer() {
                   items={items.map(item => ({
                     name: item.name,
                     description: item.description,
-                    price: appliedRate && appliedRate !== 87 ? getAdjustedPrice(item) : item.price,
+                    price: appliedRate && appliedRate !== globalRate ? getAdjustedPrice(item) : item.price,
                     quantity: item.quantity,
                     amount: item.amount,
                     type: item.type

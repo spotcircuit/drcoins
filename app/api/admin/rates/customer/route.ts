@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setCustomerRate, removeCustomerRate, setBulkCustomerRates } from '@/lib/pricing-rates';
 import { Resend } from 'resend';
+import { prisma } from '@/lib/prisma';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
@@ -25,6 +26,12 @@ async function sendRateNotificationEmail(
   note?: string
 ) {
   try {
+    const pricingConfig = await prisma.pricingConfig.findUnique({
+      where: { id: 'default' },
+      select: { globalRate: true }
+    });
+    const standardRate = pricingConfig?.globalRate?.toNumber() ?? 87;
+
     const expiryDate = expiresAt ? new Date(expiresAt).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -129,7 +136,7 @@ async function sendRateNotificationEmail(
                 <div class="rate-value">${rate} coins per $1</div>
                 <span class="rate-type">${type === 'permanent' ? '✓ Permanent' : '⏰ Temporary'}</span>
                 <p style="color: #6b7280; font-size: 14px; margin-top: 10px;">
-                  (Standard rate: 87 coins per $1)
+                  (Standard rate: ${standardRate} coins per $1)
                 </p>
               </div>
 

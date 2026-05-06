@@ -60,7 +60,24 @@ const CTA: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ classNam
 // Shop Pages
 const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoins }) => {
   const { addToCart } = useCart();
-  const coinsPerDollar = 87; // Standard rate displayed on shop page
+  const [coinsPerDollar, setCoinsPerDollar] = React.useState(87);
+
+  React.useEffect(() => {
+    const loadGlobalRate = async () => {
+      try {
+        const res = await fetch('/api/rates/check');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.globalRate === 'number' && data.globalRate > 0) {
+          setCoinsPerDollar(data.globalRate);
+        }
+      } catch (error) {
+        console.error('Failed to load global rate, using fallback 87:', error);
+      }
+    };
+
+    loadGlobalRate();
+  }, []);
 
   // Calculate min/max coins based on standard rate to maintain $20-$2000 price range
   const minCoins = Math.round(20 * coinsPerDollar);
@@ -150,34 +167,36 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
       <h3 className="mb-4 text-lg font-semibold text-white">Popular Packages</h3>
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          {name: "Quick Top-up", coins: 1740, price: 20.00, image: "/drcoins.png"},
-          {name: "Standard Pack", coins: 4350, price: 50.00, image: "/Dr,11.png"},
-          {name: "Premium Bundle", coins: 8700, price: 100.00, image: "/Dr 15.png"},
-        ].map((pack) => (
+          {name: "Quick Top-up", price: 20.00, image: "/drcoins.png"},
+          {name: "Standard Pack", price: 50.00, image: "/Dr,11.png"},
+          {name: "Premium Bundle", price: 100.00, image: "/Dr 15.png"},
+        ].map((pack) => {
+          const packCoins = Math.round(pack.price * coinsPerDollar);
+          return (
           <SectionCard key={pack.name} className="flex flex-col h-full">
             <div className="flex-1">
               <div className="flex justify-center mb-4">
                 <img 
                   src={pack.image} 
-                  alt={`${pack.coins} Coins`} 
+                  alt={`${packCoins} Coins`} 
                   className={`h-32 w-auto object-contain ${pack.name === 'Premium Bundle' ? 'scale-75' : ''}`}
                 />
               </div>
               <h3 className="text-xl font-bold text-center mb-2">{pack.name}</h3>
-              <div className="text-2xl font-bold text-purple-600 text-center">{pack.coins.toLocaleString()} Coins</div>
+              <div className="text-2xl font-bold text-purple-600 text-center">{packCoins.toLocaleString()} Coins</div>
               <div className="mt-2 text-lg font-semibold text-center">${pack.price.toFixed(2)}</div>
             </div>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => {
-                  setSelectedCoins(pack.coins);
+                  setSelectedCoins(packCoins);
                   addToCart({
-                    name: `${pack.name} - ${pack.coins} coins`,
+                    name: `${pack.name} - ${packCoins} coins`,
                     description: "Instant delivery to your LiveMe account",
                     price: pack.price,
                     quantity: 1,
                     type: 'coins',
-                    amount: pack.coins,
+                    amount: packCoins,
                     image: pack.image
                   });
                 }}
@@ -186,14 +205,14 @@ const ShopCoinsMock: React.FC<{ initialCoins?: number | null }> = ({ initialCoin
                 Add to Cart
               </button>
               <button
-                onClick={() => setSelectedCoins(pack.coins)}
+                onClick={() => setSelectedCoins(packCoins)}
                 className="flex-1 px-3 py-2 border-2 border-purple-600 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors text-sm"
               >
                 Select Amount
               </button>
             </div>
           </SectionCard>
-        ))}
+        )})}
       </div>
     </Container>
   );
