@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AcceptJsCheckout from '@/components/AcceptJsCheckout';
 import ForumPayCheckout from '@/components/ForumPayCheckout';
@@ -19,6 +19,7 @@ function CheckoutContent() {
   const [showLiveMeModal, setShowLiveMeModal] = useState(false);
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  const [effectiveRate, setEffectiveRate] = useState<number | null>(null);
   /** Keep Plaid mounted after first visit so switching Card ↔ Bank does not reload Link (avoids duplicate script warning). */
   const [bankTabEverOpened, setBankTabEverOpened] = useState(false);
 
@@ -49,12 +50,54 @@ function CheckoutContent() {
     if (emailParam) setEmail(emailParam);
   }, [searchParams, cartItems, router]);
 
+  useEffect(() => {
+    const loadEffectiveRate = async () => {
+      if (!email) return;
+      try {
+        const query = new URLSearchParams({ email });
+        if (liveMeId) query.set('liveMeId', liveMeId);
+        const res = await fetch(`/api/rates/check?${query.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.rate === 'number' && data.rate > 0) {
+          setEffectiveRate(data.rate);
+        }
+      } catch (error) {
+        console.error('Failed to load effective checkout rate:', error);
+      }
+    };
+
+    loadEffectiveRate();
+  }, [email, liveMeId]);
+
+  const normalizedCheckoutItems = useMemo(() => {
+    if (checkoutItems.length === 0) return [];
+
+    return checkoutItems.map((item: any) => {
+      const type = item.type || 'coins';
+      const quantity = item.quantity || 1;
+      if (type !== 'coins') {
+        return { ...item, type, quantity };
+      }
+
+      const rateToUse = effectiveRate || 87;
+      const amount = Math.round((item.price || 0) * rateToUse);
+      return {
+        ...item,
+        type,
+        quantity,
+        amount,
+        name: `LiveMe Coins - ${amount} coins`,
+      };
+    });
+  }, [checkoutItems, effectiveRate]);
+
   // Show modal if LiveMe ID or email is missing
   useEffect(() => {
-    if (checkoutItems.length > 0 && (!liveMeId || !email)) {
+    if (normalizedCheckoutItems.length > 0 && (!liveMeId || !email)) {
       setShowLiveMeModal(true);
     }
-  }, [checkoutItems, liveMeId, email]);
+  }, [normalizedCheckoutItems, liveMeId, email]);
 
   const handleSuccess = (orderId: string, meta?: { bankTransferPendingSettlement?: boolean }) => {
     clearCart();
@@ -62,7 +105,7 @@ function CheckoutContent() {
     router.push(`/success?orderId=${encodeURIComponent(orderId)}${pending ? '&bankPending=1' : ''}`);
   };
 
-  if (checkoutItems.length === 0) {
+  if (normalizedCheckoutItems.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-purple-950 flex items-center justify-center">
         <div className="text-white text-center">
@@ -169,7 +212,7 @@ function CheckoutContent() {
         <div className="bg-gray-900/50 rounded-2xl p-6 sm:p-8 border border-gray-800">
           {paymentMethod === 'card' && (
             <AcceptJsCheckout
-              items={checkoutItems}
+              items={normalizedCheckoutItems}
               liveMeId={liveMeId}
               email={email}
               onSuccess={handleSuccess}
@@ -181,7 +224,7 @@ function CheckoutContent() {
           {bankTabEverOpened && (
             <div className={paymentMethod === 'bank' ? '' : 'hidden'} aria-hidden={paymentMethod !== 'bank'}>
               <PlaidCheckout
-                items={checkoutItems}
+                items={normalizedCheckoutItems}
                 liveMeId={liveMeId}
                 email={email}
                 onSuccess={handleSuccess}
@@ -193,7 +236,7 @@ function CheckoutContent() {
           )}
           {paymentMethod === 'crypto' && (
             <ForumPayCheckout
-              items={checkoutItems}
+              items={normalizedCheckoutItems}
               liveMeId={liveMeId}
               email={email}
               onError={(err) => {

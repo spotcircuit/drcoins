@@ -52,6 +52,25 @@ export async function createPlaidOrderAndCustomer(body: CreateCryptoOrderBody) {
   const totalAmount = items.reduce((sum: number, item: any) =>
     sum + (item.price * (item.quantity || 1)), 0
   );
+  const normalizedItems = items.map((item: any) => {
+    const type = item.type || 'coins';
+    if (type !== 'coins') {
+      return {
+        ...item,
+        type,
+        quantity: item.quantity || 1,
+        amount: item.amount || null,
+      };
+    }
+    const coinsAmount = Math.round((item.price || 0) * appliedRate);
+    return {
+      ...item,
+      type,
+      quantity: item.quantity || 1,
+      amount: coinsAmount,
+      name: `LiveMe Coins - ${coinsAmount} coins`,
+    };
+  });
   const orderId = Date.now().toString();
 
   const order = await prisma.order.create({
@@ -65,7 +84,7 @@ export async function createPlaidOrderAndCustomer(body: CreateCryptoOrderBody) {
       liveMeId,
       appliedRate,
       items: {
-        create: items.map((item: any) => ({
+        create: normalizedItems.map((item: any) => ({
           name: item.name,
           description: item.description || `Instant delivery to LiveMe ID: ${liveMeId}`,
           price: item.price,
