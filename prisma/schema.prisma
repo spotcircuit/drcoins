@@ -144,6 +144,43 @@ model EmailLog {
   @@index([sentAt])
 }
 
+model PricingConfig {
+  id         String   @id @default("default")
+  globalRate Decimal  @default(87) @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model CustomerRate {
+  id        String          @id @default(cuid())
+  email     String          @unique
+  rate      Decimal         @db.Decimal(10, 2)
+  type      PricingRateType @default(PERMANENT)
+  expiresAt DateTime?
+  setBy     String
+  setAt     DateTime        @default(now())
+  note      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model RateHistory {
+  id        String            @id @default(cuid())
+  timestamp DateTime          @default(now())
+  action    RateHistoryAction
+  email     String?
+  oldValue  Decimal?          @db.Decimal(10, 2)
+  newValue  Decimal?          @db.Decimal(10, 2)
+  setBy     String
+  note      String?
+
+  @@index([timestamp])
+  @@index([email])
+}
+
 // Enums
 enum OrderStatus {
   PENDING
@@ -166,4 +203,15 @@ enum EmailType {
   PAYMENT_SUCCESS
   FULFILLMENT
   ADMIN_NOTIFICATION
+}
+
+enum PricingRateType {
+  PERMANENT
+  TEMPORARY
+}
+
+enum RateHistoryAction {
+  GLOBAL_RATE_CHANGE
+  CUSTOMER_RATE_SET
+  CUSTOMER_RATE_REMOVED
 }

@@ -1,15 +1,10 @@
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import { cache } from './cache';
-import { put, head, list } from '@vercel/blob';
+import { prisma } from './prisma';
+import { Prisma, PricingRateType, RateHistoryAction } from '@prisma/client';
 
-const RATES_FILE_PATH = join(process.cwd(), 'data', 'pricing-rates.json');
-const BLOB_FILENAME = 'pricing-rates.json';
 const CACHE_KEY = 'pricing-rates';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-// Check if we're running on Vercel (production) or locally (development)
-const IS_VERCEL = process.env.VERCEL === '1' || process.env.BLOB_READ_WRITE_TOKEN;
+const DEFAULT_GLOBAL_RATE = 87;
 
 export type RateType = 'permanent' | 'temporary';
 
@@ -39,124 +34,86 @@ export interface PricingRates {
   history: RateHistoryEntry[];
 }
 
-// Load rates from Vercel Blob
-async function loadRatesFromBlob(): Promise<PricingRates> {
-  try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      throw new Error('BLOB_READ_WRITE_TOKEN not configured');
+function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
+  return value ? value.toNumber() : 0;
+}
+
+function toRateType(type: PricingRateType): RateType {
+  return type === PricingRateType.TEMPORARY ? 'temporary' : 'permanent';
+}
+
+function toPrismaRateType(type: RateType): PricingRateType {
+  return type === 'temporary' ? PricingRateType.TEMPORARY : PricingRateType.PERMANENT;
+}
+
+function toHistoryAction(action: RateHistoryAction): RateHistoryEntry['action'] {
+  switch (action) {
+    case RateHistoryAction.GLOBAL_RATE_CHANGE:
+      return 'global_rate_change';
+    case RateHistoryAction.CUSTOMER_RATE_SET:
+      return 'customer_rate_set';
+    case RateHistoryAction.CUSTOMER_RATE_REMOVED:
+      return 'customer_rate_removed';
+  }
+}
+
+async function ensurePricingConfig() {
+  return prisma.pricingConfig.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      globalRate: DEFAULT_GLOBAL_RATE
     }
+  });
+}
 
-    // List blobs and find our rates file
-    const { blobs } = await list({
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+async function buildPricingRatesPayload(): Promise<PricingRates> {
+  const config = await ensurePricingConfig();
+  const now = new Date();
 
-    const ratesBlob = blobs.find(blob => blob.pathname === BLOB_FILENAME);
+  const customerRows = await prisma.customerRate.findMany({
+    where: {
+      OR: [
+        { type: PricingRateType.PERMANENT },
+        { expiresAt: { gt: now } }
+      ]
+    },
+    orderBy: { setAt: 'desc' }
+  });
 
-    if (!ratesBlob) {
-      console.log('Rates blob not found, returning defaults');
-      return {
-        globalRate: 87,
-        customerRates: {},
-        history: []
-      };
-    }
+  const historyRows = await prisma.rateHistory.findMany({
+    orderBy: { timestamp: 'asc' }
+  });
 
-    // Fetch the blob content using the URL
-    const response = await fetch(ratesBlob.url);
-
-    if (!response.ok) {
-      throw new Error(`Blob fetch failed: ${response.status}`);
-    }
-
-    const data = await response.text();
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error loading pricing rates from blob:', error);
-    // Return default rates if blob doesn't exist or is corrupted
-    return {
-      globalRate: 87,
-      customerRates: {},
-      history: []
+  const customerRates = customerRows.reduce<Record<string, CustomerRate>>((acc, row) => {
+    acc[row.email] = {
+      email: row.email,
+      rate: decimalToNumber(row.rate),
+      type: toRateType(row.type),
+      expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+      setBy: row.setBy,
+      setAt: row.setAt.toISOString(),
+      note: row.note ?? undefined
     };
-  }
-}
+    return acc;
+  }, {});
 
-// Load rates from local file system
-async function loadRatesFromFile(): Promise<PricingRates> {
-  try {
-    const data = await fs.readFile(RATES_FILE_PATH, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error loading pricing rates from file:', error);
-    // Return default rates if file doesn't exist or is corrupted
-    return {
-      globalRate: 87,
-      customerRates: {},
-      history: []
-    };
-  }
-}
+  const history = historyRows.map((row) => ({
+    timestamp: row.timestamp.toISOString(),
+    action: toHistoryAction(row.action),
+    email: row.email ?? undefined,
+    oldValue: decimalToNumber(row.oldValue ?? undefined) || undefined,
+    newValue: decimalToNumber(row.newValue ?? undefined) || undefined,
+    setBy: row.setBy,
+    note: row.note ?? undefined
+  }));
 
-// Save rates to Vercel Blob
-async function saveRatesToBlob(rates: PricingRates): Promise<void> {
-  try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      const error = 'BLOB_READ_WRITE_TOKEN environment variable not set in Vercel';
-      console.error(error);
-      throw new Error(error);
-    }
-
-    console.log('Attempting to save to Vercel Blob...');
-    console.log('Token starts with:', process.env.BLOB_READ_WRITE_TOKEN.substring(0, 20));
-
-    const blob = await put(BLOB_FILENAME, JSON.stringify(rates, null, 2), {
-      access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-
-    console.log('✅ Rates successfully saved to Vercel Blob:', blob.url);
-    // Invalidate cache after saving
-    cache.invalidate(CACHE_KEY);
-  } catch (error: any) {
-    console.error('❌ Error saving pricing rates to blob:', {
-      message: error.message,
-      code: error.code,
-      statusCode: error.statusCode,
-      details: error
-    });
-    throw new Error(`Failed to save pricing rates to blob: ${error.message}`);
-  }
-}
-
-// Save rates to local file system
-async function saveRatesToFile(rates: PricingRates): Promise<void> {
-  try {
-    await fs.writeFile(RATES_FILE_PATH, JSON.stringify(rates, null, 2));
-    // Invalidate cache after saving
-    cache.invalidate(CACHE_KEY);
-  } catch (error) {
-    console.error('Error saving pricing rates to file:', error);
-    throw new Error('Failed to save pricing rates to file');
-  }
-}
-
-// Unified load function - uses Blob on Vercel, file system locally
-async function loadRates(): Promise<PricingRates> {
-  if (IS_VERCEL) {
-    return await loadRatesFromBlob();
-  } else {
-    return await loadRatesFromFile();
-  }
-}
-
-// Unified save function - uses Blob on Vercel, file system locally
-async function saveRates(rates: PricingRates): Promise<void> {
-  if (IS_VERCEL) {
-    await saveRatesToBlob(rates);
-  } else {
-    await saveRatesToFile(rates);
-  }
+  return {
+    globalRate: decimalToNumber(config.globalRate),
+    customerRates,
+    history
+  };
 }
 
 // Get all rates (with caching)
@@ -166,55 +123,58 @@ export async function getRates(): Promise<PricingRates> {
     return cached;
   }
 
-  const rates = await loadRates();
+  const rates = await buildPricingRatesPayload();
   cache.set(CACHE_KEY, rates);
   return rates;
 }
 
 // Get rate for a specific email
 export async function getRateForEmail(email: string | null): Promise<number> {
-  if (!email) {
-    const rates = await getRates();
-    return rates.globalRate;
-  }
+  const config = await ensurePricingConfig();
+  const globalRate = decimalToNumber(config.globalRate);
+
+  if (!email) return globalRate;
 
   const normalizedEmail = email.toLowerCase().trim();
-  const rates = await getRates();
+  const customerRate = await prisma.customerRate.findUnique({
+    where: { email: normalizedEmail }
+  });
 
-  const customerRate = rates.customerRates[normalizedEmail];
+  if (!customerRate) return globalRate;
 
-  if (!customerRate) {
-    return rates.globalRate;
+  if (
+    customerRate.type === PricingRateType.TEMPORARY &&
+    customerRate.expiresAt &&
+    customerRate.expiresAt < new Date()
+  ) {
+    await removeCustomerRate(normalizedEmail, 'system');
+    return globalRate;
   }
 
-  // Check if rate has expired
-  if (customerRate.type === 'temporary' && customerRate.expiresAt) {
-    const expiryDate = new Date(customerRate.expiresAt);
-    if (expiryDate < new Date()) {
-      // Rate has expired, remove it and return global rate
-      await removeCustomerRate(normalizedEmail, 'system');
-      return rates.globalRate;
-    }
-  }
-
-  return customerRate.rate;
+  return decimalToNumber(customerRate.rate);
 }
 
 // Set global rate
 export async function setGlobalRate(newRate: number, setBy: string): Promise<void> {
-  const rates = await getRates();
-  const oldRate = rates.globalRate;
+  const config = await ensurePricingConfig();
+  const oldRate = decimalToNumber(config.globalRate);
 
-  rates.globalRate = newRate;
-  rates.history.push({
-    timestamp: new Date().toISOString(),
-    action: 'global_rate_change',
-    oldValue: oldRate,
-    newValue: newRate,
-    setBy
-  });
+  await prisma.$transaction([
+    prisma.pricingConfig.update({
+      where: { id: 'default' },
+      data: { globalRate: newRate }
+    }),
+    prisma.rateHistory.create({
+      data: {
+        action: RateHistoryAction.GLOBAL_RATE_CHANGE,
+        oldValue: oldRate,
+        newValue: newRate,
+        setBy
+      }
+    })
+  ]);
 
-  await saveRates(rates);
+  cache.invalidate(CACHE_KEY);
 }
 
 // Set customer-specific rate
@@ -227,53 +187,70 @@ export async function setCustomerRate(
   note?: string
 ): Promise<void> {
   const normalizedEmail = email.toLowerCase().trim();
-  const rates = await getRates();
-
-  const oldRate = rates.customerRates[normalizedEmail]?.rate;
-
-  rates.customerRates[normalizedEmail] = {
-    email: normalizedEmail,
-    rate,
-    type,
-    expiresAt,
-    setBy,
-    setAt: new Date().toISOString(),
-    note
-  };
-
-  rates.history.push({
-    timestamp: new Date().toISOString(),
-    action: 'customer_rate_set',
-    email: normalizedEmail,
-    oldValue: oldRate,
-    newValue: rate,
-    setBy,
-    note
+  const existing = await prisma.customerRate.findUnique({
+    where: { email: normalizedEmail }
   });
+  const oldRate = existing ? decimalToNumber(existing.rate) : undefined;
 
-  await saveRates(rates);
+  await prisma.$transaction([
+    prisma.customerRate.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        rate,
+        type: toPrismaRateType(type),
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        setBy,
+        setAt: new Date(),
+        note: note ?? null
+      },
+      create: {
+        email: normalizedEmail,
+        rate,
+        type: toPrismaRateType(type),
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        setBy,
+        note: note ?? null
+      }
+    }),
+    prisma.rateHistory.create({
+      data: {
+        action: RateHistoryAction.CUSTOMER_RATE_SET,
+        email: normalizedEmail,
+        oldValue: oldRate,
+        newValue: rate,
+        setBy,
+        note: note ?? null
+      }
+    })
+  ]);
+
+  cache.invalidate(CACHE_KEY);
 }
 
 // Remove customer-specific rate
 export async function removeCustomerRate(email: string, setBy: string): Promise<void> {
   const normalizedEmail = email.toLowerCase().trim();
-  const rates = await getRates();
+  const existing = await prisma.customerRate.findUnique({
+    where: { email: normalizedEmail }
+  });
+  if (!existing) return;
 
-  const oldRate = rates.customerRates[normalizedEmail]?.rate;
+  const oldRate = decimalToNumber(existing.rate);
+  await prisma.$transaction([
+    prisma.customerRate.delete({
+      where: { email: normalizedEmail }
+    }),
+    prisma.rateHistory.create({
+      data: {
+        action: RateHistoryAction.CUSTOMER_RATE_REMOVED,
+        email: normalizedEmail,
+        oldValue: oldRate,
+        setBy
+      }
+    })
+  ]);
 
-  if (rates.customerRates[normalizedEmail]) {
-    delete rates.customerRates[normalizedEmail];
-
-    rates.history.push({
-      timestamp: new Date().toISOString(),
-      action: 'customer_rate_removed',
-      email: normalizedEmail,
-      oldValue: oldRate,
-      setBy
-    });
-
-    await saveRates(rates);
-  }
+  cache.invalidate(CACHE_KEY);
 }
 
 // Set bulk customer rates
@@ -285,49 +262,66 @@ export async function setBulkCustomerRates(
   setBy: string,
   note?: string
 ): Promise<void> {
-  const rates = await getRates();
-
+  const now = new Date();
   for (const email of emails) {
     const normalizedEmail = email.toLowerCase().trim();
-    const oldRate = rates.customerRates[normalizedEmail]?.rate;
-
-    rates.customerRates[normalizedEmail] = {
-      email: normalizedEmail,
-      rate,
-      type,
-      expiresAt,
-      setBy,
-      setAt: new Date().toISOString(),
-      note
-    };
-
-    rates.history.push({
-      timestamp: new Date().toISOString(),
-      action: 'customer_rate_set',
-      email: normalizedEmail,
-      oldValue: oldRate,
-      newValue: rate,
-      setBy,
-      note: note ? `[BULK] ${note}` : '[BULK]'
+    const existing = await prisma.customerRate.findUnique({
+      where: { email: normalizedEmail },
     });
+
+    await prisma.$transaction([
+      prisma.customerRate.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          rate,
+          type: toPrismaRateType(type),
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+          setBy,
+          setAt: now,
+          note: note ?? null
+        },
+        create: {
+          email: normalizedEmail,
+          rate,
+          type: toPrismaRateType(type),
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+          setBy,
+          setAt: now,
+          note: note ?? null
+        }
+      }),
+      prisma.rateHistory.create({
+        data: {
+          action: RateHistoryAction.CUSTOMER_RATE_SET,
+          email: normalizedEmail,
+          oldValue: existing ? decimalToNumber(existing.rate) : undefined,
+          newValue: rate,
+          setBy,
+          note: note ? `[BULK] ${note}` : '[BULK]'
+        }
+      })
+    ]);
   }
 
-  await saveRates(rates);
+  cache.invalidate(CACHE_KEY);
 }
 
 // Get rate history (optionally filtered by email)
 export async function getRateHistory(email?: string, limit?: number): Promise<RateHistoryEntry[]> {
-  const rates = await getRates();
-  let history = [...rates.history].reverse(); // Most recent first
+  const normalizedEmail = email?.toLowerCase().trim();
+  const rows = await prisma.rateHistory.findMany({
+    where: normalizedEmail ? { email: normalizedEmail } : undefined,
+    orderBy: { timestamp: 'desc' },
+    take: limit
+  });
 
-  if (email) {
-    const normalizedEmail = email.toLowerCase().trim();
-    history = history.filter(entry => entry.email === normalizedEmail);
-  }
-
-  if (limit) {
-    history = history.slice(0, limit);
-  }
-
-  return history;
+  return rows.map((row) => ({
+    timestamp: row.timestamp.toISOString(),
+    action: toHistoryAction(row.action),
+    email: row.email ?? undefined,
+    oldValue: row.oldValue ? decimalToNumber(row.oldValue) : undefined,
+    newValue: row.newValue ? decimalToNumber(row.newValue) : undefined,
+    setBy: row.setBy,
+    note: row.note ?? undefined
+  }));
 }
