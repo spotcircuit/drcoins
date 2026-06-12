@@ -295,9 +295,14 @@ export default function PlaidCheckout({ items, liveMeId, email, onSuccess, onErr
             />
             <input
               type="text"
-              placeholder="ZIP"
+              placeholder="ZIP / Postal code"
               value={billingZip}
-              onChange={(e) => setBillingZip(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9\s-]/g, '');
+                setBillingZip(value.substring(0, 12));
+              }}
               className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <CountryAutocomplete

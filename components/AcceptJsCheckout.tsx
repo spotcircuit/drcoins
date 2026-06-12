@@ -550,15 +550,18 @@ export default function AcceptJsCheckout({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                ZIP Code
+                ZIP / Postal Code
               </label>
               <input
                 type="text"
                 value={billingZip}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  setBillingZip(value.substring(0, 10));
+                  const value = e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9\s-]/g, '');
+                  setBillingZip(value.substring(0, 12));
                 }}
+                placeholder="12345 or K1A 0B1"
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />
