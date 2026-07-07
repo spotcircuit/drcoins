@@ -11,6 +11,7 @@ import { logPlaid, logPlaidApiError, plaidRequestIdFromResponse } from '@/lib/pl
 function countryIso2(country: string): string {
   const u = country.trim().toUpperCase();
   if (u === 'USA' || u === 'UNITED STATES' || u === 'US') return 'US';
+  if (u === 'ZAF' || u === 'SOUTH AFRICA' || u === 'ZA') return 'ZA';
   if (u.length === 2) return u;
   return 'US';
 }

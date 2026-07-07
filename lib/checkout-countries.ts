@@ -7,6 +7,7 @@ export const CHECKOUT_COUNTRY_OPTIONS = [
   { value: 'COL', label: 'Colombia' },
   { value: 'JAM', label: 'Jamaica' },
   { value: 'NGA', label: 'Nigeria' },
+  { value: 'ZAF', label: 'South Africa' },
   { value: 'PRI', label: 'Puerto Rico' },
   { value: 'GBR', label: 'United Kingdom' },
   { value: 'VEN', label: 'Venezuela' },
